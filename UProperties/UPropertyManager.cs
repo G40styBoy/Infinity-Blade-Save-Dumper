@@ -68,7 +68,7 @@ class UPropertyManager
     private JsonParser dataParser;
     internal UnrealArchive Ar;
 
-    private void ParseSaveData(string name, object value, string type, [Optional] string enumName, [Optional] string enumValue) => dataParser.ParseSaveData(name, value, type, enumName, enumValue);
+    private void ParseSaveData(string name, object value, string type, int arrayIndex, [Optional] string enumName, [Optional] string enumValue) => dataParser.ParseSaveData(name, value, type, arrayIndex, enumName, enumValue);
 
     public UPropertyManager(UnrealArchive unrealArchive)
     {   
@@ -123,12 +123,12 @@ class UPropertyManager
         {
             case "IntProperty":
                 Ar.Deserialize(ref pVar._int);
-                ParseSaveData(name, pVar._int, type); 
+                ParseSaveData(name, pVar._int, type, arrayIndex); 
                 return true;
 
             case "FloatProperty":
                 Ar.Deserialize(ref pVar._float);
-                ParseSaveData(name, pVar._float, type); 
+                ParseSaveData(name, pVar._float, type, arrayIndex); 
                 return true;
 
             case "ByteProperty":
@@ -138,38 +138,38 @@ class UPropertyManager
                 {
                     // property pulled in None
                     Ar.Deserialize(ref pVar._byte);
-                    ParseSaveData(name, pVar._byte, type); 
+                    ParseSaveData(name, pVar._byte, type, arrayIndex); 
                 }
                 else
                 {
                     //property pulled in enum
                     string enumValue = "";
                     Ar.Deserialize(ref enumValue);
-                    ParseSaveData(name, pVar._byte, type, enumName, enumValue); 
+                    ParseSaveData(name, pVar._byte, type, arrayIndex, enumName, enumValue); 
                 }
                 return true;
 
             case "BoolProperty":
                 Ar.Deserialize(ref pVar._bool);
-                ParseSaveData(name, pVar._bool, type);          
+                ParseSaveData(name, pVar._bool, type, arrayIndex);          
                 return true;
 
             case "StrProperty":
                 if (Ar.Deserialize(Globals.InfoGrab) == 0) // handles empty string case
                 {
-                    ParseSaveData(name, "", type);
+                    ParseSaveData(name, "", type, arrayIndex);
                     return true;
                 }
                 Ar.ChangeStreamPosition(-Globals.InfoGrab);
                 Ar.Deserialize(ref pVar._str);
-                ParseSaveData(name, pVar._str, type);            
+                ParseSaveData(name, pVar._str, type, arrayIndex);            
                 return true;
 
             // TODO: we need to handle these differently.
             // we could probably do something like pulling all the names from the ib ini file, locating the name, then creating an instance of a name to match
             case "NameProperty":
                 Ar.Deserialize(ref pVar._name);
-                ParseSaveData(name, pVar._name, type);    
+                ParseSaveData(name, pVar._name, type, arrayIndex);    
                 return true;
 
             case "StructProperty":

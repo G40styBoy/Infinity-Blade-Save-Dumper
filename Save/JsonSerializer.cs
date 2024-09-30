@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Newtonsoft.Json;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
 
 class JsonSerializer
 {
@@ -249,7 +250,17 @@ class JsonSerializer
                         sizeLog += structSizeBuffer;
                     }
                 }
-                else if (propertyValueType == JsonToken.String) SerializeEnum(objectPropertyName, Convert.ToString(propertyValue)!, ref sizeLog);
+                else if (propertyValueType == JsonToken.String)
+                {
+                    if(objectPropertyName == "Item")
+                    {
+                        SerializeEdgeCaseConsumable((string)propertyValue, ref sizeLog);
+                    }
+                    else 
+                    {
+                       SerializeEnum(objectPropertyName, Convert.ToString(propertyValue)!, ref sizeLog);
+                    }
+                }
                 break;
 
             case JsonToken.StartArray:
@@ -385,7 +396,7 @@ class JsonSerializer
     {
         if (!propName.StartsWith("b") && !propName.StartsWith("ini") && !propName.StartsWith("str")) return;   
         else if (propertyValueType == JsonToken.Boolean) return;
-        else if (propName == "bWasEncrypted") return;
+        else if (propName == "bWasEncrypted") return;  // edge case, for some reason the devs used a boolean type prefix for an int?
 
         if (propName.StartsWith("b"))
         {
@@ -492,6 +503,42 @@ class JsonSerializer
         {
             sizeLog += dataSize + "ByteProperty_".Length;
             sizeLog += dataSize + dataSize + dataSize + enumName.Length + nullTerminator + dataSize + enumValue.Length + nullTerminator;
+        }
+    }
+
+    private void SerializeEdgeCaseConsumable(string propertyValue, ref long sizeLog)
+    {
+        JsonToken type;
+        object value;
+        int arrayIndexValue = 0;
+
+        serializeState.enumHandle = true;
+
+        // Globals.eTouchRewardActor intType = 
+        if (Enum.TryParse(propertyValue, out Globals.eTouchRewardActor rewardActor))
+        {
+            arrayIndexValue = (int)rewardActor;
+        }
+        else
+        {
+            Console.WriteLine("Enum not found.");
+            return;
+        }
+
+        Read();
+        (type, value) = GetPropertyValueInfo(); 
+
+        SerializeStringValue("IntProperty");
+        SerializeIntValue(4); // size
+        SerializeIntValue(arrayIndexValue); // Array Index
+        SerializeIntValue(Convert.ToInt32(value)); // value     
+
+        Read();
+
+        if (sizeLog != -1)
+        {
+            sizeLog += dataSize + "IntProperty_".Length;
+            sizeLog += dataSize + dataSize + dataSize;
         }
     }
 

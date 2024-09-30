@@ -1,6 +1,6 @@
+using System.Text;
 using System.Text.Json;
 using System.Runtime.InteropServices;
-using Newtonsoft.Json;
 
 public class JsonParser
 {
@@ -29,14 +29,21 @@ public class JsonParser
     internal void WriteString(string propertyName, string value) => writer.WriteString(propertyName, value);
 
     internal void WriteProperty(string name) => writer.WritePropertyName(name);  
+    private void WriteNonIndentedData(MemoryStream oneLineStream) => writer.WriteRawValue(Encoding.UTF8.GetString(oneLineStream.ToArray()));
     private void Flush() => writer.Flush();
 
-    internal void ParseSaveData(string name, object value, string type, [Optional] string enumName, [Optional] string enumValue)
+    internal void ParseSaveData(string name, object value, string type, int arrayIndex, [Optional] string enumName, [Optional] string enumValue)
     {
+        if (name == "NumConsumable")  // this is a special edge case that we need to handle.
+        {
+            ParseNumConsumable(name, value, type, arrayIndex);
+            return;
+        }
+
         if (name != null && type != "NameProperty" && type != "ByteProperty" && type != "StrProperty" || !string.IsNullOrEmpty(enumName)) WritePropertyName($"{name}");
-        if (type == "ByteProperty" && string.IsNullOrEmpty(enumName)) WritePropertyName($"b{name}");
-        if (type == "NameProperty") WritePropertyName($"ini{name}");
-        if (type == "StrProperty") WritePropertyName($"str{name}");
+        else if (type == "ByteProperty" && string.IsNullOrEmpty(enumName)) WritePropertyName($"b{name}");
+        else if (type == "NameProperty") WritePropertyName($"ini{name}");
+        else if (type == "StrProperty") WritePropertyName($"str{name}");
 
         switch (type)
         {
@@ -50,9 +57,7 @@ public class JsonParser
             case "ByteProperty":
                 if (!string.IsNullOrEmpty(enumName) && !string.IsNullOrEmpty(enumValue))
                 {
-                    ProcessObj();
-                    WriteString(enumName, enumValue);
-                    TerminateObj();
+                    WriteConciseEnum(name!, enumName, enumValue);
                 }
                 else WriteNumberValue((byte)value);  
                 break;
@@ -71,6 +76,57 @@ public class JsonParser
                 break;
         }
     }
+
+// TODO; optimize indenting code so it can be ran through one function
+
+    private void ParseNumConsumable(string name, object value, string type, int idx)
+    {
+        if (type != "IntProperty")
+        {
+            return;
+        }
+
+        // For a one-line format, we temporarily disable indentation
+        var options = new JsonWriterOptions { Indented = false }; // One-line format
+        using (var oneLineStream = new MemoryStream())
+        {
+            using (var oneLineWriter = new Utf8JsonWriter(oneLineStream, options))
+            {
+                oneLineWriter.WriteStartObject();
+                oneLineWriter.WriteString("Item", GetConsumableName(idx));
+                oneLineWriter.WriteNumber("Count", (int)value);
+                oneLineWriter.WriteEndObject();
+            }
+
+            // Write the one-line JSON to the main stream
+            WritePropertyName(name);
+            WriteNonIndentedData(oneLineStream);
+        }
+    }
+    
+
+    private void WriteConciseEnum(string name, string enumName, string enumValue)
+    {
+        // For a one-line format, we temporarily disable indentation
+        var options = new JsonWriterOptions { Indented = false }; // One-line format
+        using (var oneLineStream = new MemoryStream())
+        {
+            using (var oneLineWriter = new Utf8JsonWriter(oneLineStream, options))
+            {    
+                oneLineWriter.WriteStartObject();
+                oneLineWriter.WriteString(enumName, enumValue);
+                oneLineWriter.WriteEndObject();
+            }
+            WriteNonIndentedData(oneLineStream);
+        }
+    }
+
+    private string GetConsumableName(int idx)
+    {
+        Globals.eTouchRewardActor rewardActor = (Globals.eTouchRewardActor)idx;
+        return rewardActor.ToString();
+    }
+
    
     internal void ProcessObj(string name)
     {

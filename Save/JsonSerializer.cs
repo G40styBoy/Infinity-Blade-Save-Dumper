@@ -26,8 +26,8 @@ class JsonSerializer
     }
     private void serialize(byte[] bytes, int index) => bWriter.Write(bytes, index, bytes.Length);
     private void serialize(byte[] value) => bWriter.Write(value, 0, value.Length);
-    private bool IsDynamicArray(string name) => UPropertyManager.IsArrayDynamic(name);
-    private Type GetArrayFieldType(string name) => UPropertyManager.GetArrayFieldType(name, true);
+    private bool IsDynamicArray(string name) => Util.IsArrayDynamic(name);
+    private Type GetArrayFieldType(string name) => Util.GetArrayVariableType<Globals.DynamicArrayTypes>(name);
 
 #endregion
 

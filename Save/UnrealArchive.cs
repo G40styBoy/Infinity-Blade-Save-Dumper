@@ -1,4 +1,6 @@
-﻿class UnrealArchive
+﻿using System.Runtime.InteropServices;
+
+public class UnrealArchive
 {
 
     internal FileStream saveStream;  // aquire private name for the filesteram
@@ -23,7 +25,7 @@
     public void ChangeStreamPosition(long amount) => saveStream.Position += amount;
     public void ChangeWriterPosition(long amount) => bWriter.BaseStream.Position = amount;
     public void ChangeReadPosition(long amount) => bReader.BaseStream.Position = amount;
-    private byte[] ReadBytes(int count) => bReader.ReadBytes(count);
+    internal byte[] ReadBytes(int count) => bReader.ReadBytes(count);
     private void GetFileBytes(string saveFile, ref byte[] bytes) => bytes = File.ReadAllBytes(saveFile);
     public string CleanNullTerminator(string str) => str.Remove(str.Length-1);
     public void CleanNullTerminator(ref string str) => str.Remove(str.Length-1);
@@ -121,57 +123,39 @@
         }
     }
 
-
-    public byte[] utilDeserialize(ref byte[] _buffer)
+    public valueType Deserialize<valueType>([Optional] int readCount)
     {
-        byte[] bytes = ReadBytes(Globals.InfoGrab);
-        return bytes;
+        Type genericType = typeof(valueType);
+        byte[] bytes;
+
+        switch (Type.GetTypeCode(genericType))
+        {
+            case TypeCode.Int32:
+                bytes = ReadBytes(Globals.InfoGrab);
+                return (valueType)(object)Convert.ToInt32(Util.ConvertEndian(bytes));
+            case TypeCode.Single:
+                bytes = ReadBytes(Globals.InfoGrab);
+                return (valueType)(object)BitConverter.ToSingle(bytes);
+            case TypeCode.String:
+                bytes = ReadBytes(Convert.ToInt32(Util.ConvertEndian(Deserialize<byte[]>())));
+                return (valueType)(object)CleanNullTerminator(System.Text.Encoding.UTF8.GetString(bytes));
+            case TypeCode.Boolean:
+                bytes = ReadBytes(1); // bool
+                return (valueType)(object)BitConverter.ToBoolean(bytes);
+            case TypeCode.Byte:
+                return (valueType)(object)ReadBytes(1)[0];
+            default:
+                if (genericType == typeof(byte[]))
+                {
+                    return (valueType)(object)ReadBytes(Globals.InfoGrab);
+                }
+                else
+                {
+                    Console.WriteLine($"{genericType} Value Type not accounted for!");
+                    return default(valueType);
+                }
+        }
     }
 
-    public float DeserializeFloatArray(int _buffer)
-    {
-        byte[] bytes = ReadBytes(_buffer);
-        return BitConverter.ToSingle(bytes);
-    }
 
-    public int Deserialize(int _buffer)
-    {
-        byte[] bytes = ReadBytes(_buffer);
-        return Convert.ToInt32(Util.ConvertEndian(bytes));
-    }
-
-    public void Deserialize(ref byte _buffer)
-    {
-        byte[] bytes = ReadBytes(1);
-        _buffer = bytes[0];
-    }
-
-    public void Deserialize(ref string str)
-    {
-        int _buffer = 0;
-        byte[] _bytesBuffer = [];
-        
-        _buffer = Convert.ToInt32(Util.ConvertEndian(utilDeserialize(ref _bytesBuffer)));
-        byte[] bytes = ReadBytes(_buffer);
-        str = System.Text.Encoding.UTF8.GetString(bytes);
-        str = CleanNullTerminator(str);
-    }
-
-    public void Deserialize(ref int _buffer)
-    {
-        byte[] bytes = ReadBytes(Globals.InfoGrab);
-        _buffer =  Convert.ToInt32(Util.ConvertEndian(bytes));
-    }
-    public void Deserialize(ref float _buffer)
-    {
-        byte[] bytes = ReadBytes(Globals.InfoGrab);
-        _buffer =  BitConverter.ToSingle(bytes);
-    }
-
-    public void Deserialize(ref bool _buffer)
-    {
-        byte[] bytes = ReadBytes(1);  //bool
-        _buffer =  BitConverter.ToBoolean(bytes);
-
-    }
 }

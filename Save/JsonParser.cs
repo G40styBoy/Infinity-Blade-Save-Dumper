@@ -27,10 +27,11 @@ public class JsonParser
     internal void WriteBooleanValue(bool value) => writer.WriteBooleanValue(value);
     internal void WriteStringValue(string value) => writer.WriteStringValue(value);
     internal void WriteString(string propertyName, string value) => writer.WriteString(propertyName, value);
+    
 
     internal void WriteProperty(string name) => writer.WritePropertyName(name);  
     private void WriteNonIndentedData(MemoryStream oneLineStream) => writer.WriteRawValue(Encoding.UTF8.GetString(oneLineStream.ToArray()));
-    private void Flush() => writer.Flush();
+    internal void Flush() => writer.Flush();
 
     internal void ParseSaveData(string name, object value, string type, int arrayIndex, [Optional] string enumName, [Optional] string enumValue)
     {
@@ -177,4 +178,3 @@ public class JsonParser
         jse.WriteTo(writer);
     }
 }
-

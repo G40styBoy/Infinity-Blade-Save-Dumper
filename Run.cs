@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 class Run
 {
     private enum ClassState
@@ -16,23 +18,48 @@ class Run
         State = ClassState.SaveArchive;  // load or save
 
 
-        if (State == ClassState.SaveArchive) file = Globals.saveFile;
+        if (State == ClassState.SaveArchive) file = Globals.saveFile[0];
         else if (State == ClassState.LoadArchive) file = Globals.binaryOutput;
         UnrealArchive save = new UnrealArchive(file!, FileMode.Open, true, State);  // true or false for saving or loading
 
-        // if (save.ArSaving) 
-        // {
-        //     UPropertyManager uManager = new UPropertyManager(save);
-        //     uManager.DeserializeDataToJson();  //deserialize file
-        // }
-        // else if(save.ArLoading) 
-        // {
-        //     new JsonConverter(save);
-        // }
+        if (save.ArSaving) 
+        {
+            UPropertyManager uManager = new UPropertyManager(save);
+            uManager.DeserializeDataToJson();  //deserialize file
+        }
+        else if(save.ArLoading) 
+        {
+            new JsonSerializer(save);
+        }
 
         Exit(save);
+
+        // object someInt = 100;
+        // object Float = 1f;
+        // Deserialize<int>(ref someInt);
+        // Deserialize<float>(ref Float);
+        // Deserialize<string>(ref someInt);
+
+        // Console.ReadKey();
+
+
     } 
 
+
+    public static void Deserialize<valueType>(ref object somevalue)
+    {
+        var type = typeof(valueType);
+        if (type == typeof(int))
+        {
+            somevalue = 1000;
+        }
+        if (type == typeof(float))
+        {
+            somevalue = 10f;
+        }
+        System.Console.WriteLine(type);
+        System.Console.WriteLine(somevalue + "\n");
+    }
 
 
     // For now, we only expect one stream to be opened by the program.
@@ -42,12 +69,12 @@ class Run
         else if (ar.bWriter != null) ar.bWriter.Dispose();
         if (!ar.leaveOpen) ar.saveStream.Dispose();
 
-        // if (ar.ArLoading)
-        // {
-        //     ConsoleHelper.DisplayColoredText("\nContent Difference Report", ConsoleHelper.ConsoleColorChoice.Magenta);
-        //     FileComparer comparer = new FileComparer(Globals.saveFile, Globals.binaryOutput);
-        //     comparer.CompareFiles();
-        // }
+        if (ar.ArLoading)
+        {
+            ConsoleHelper.DisplayColoredText("\nContent Difference Report", ConsoleHelper.ConsoleColorChoice.Magenta);
+            FileComparer comparer = new FileComparer(Globals.saveFile[0], Globals.binaryOutput);
+            comparer.CompareFiles();
+        }
         Finished();
     }
 
@@ -143,9 +170,6 @@ class ConsoleHelper
     
 
 }
-
-
-
 
 
 

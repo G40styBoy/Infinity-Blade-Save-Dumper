@@ -1,27 +1,15 @@
-﻿using System.Reflection;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
 
 public class UPropertyManager
 {
 
-    // created for the purpose of optimization 
-    private class PredefinedVar
-    {
-        internal int _int;
-        internal float _float;
-        internal byte _byte;
-        internal bool _bool;
-        internal string _str = "";
-        internal string _name = "";
-    }
-
     private string name = "";
     private string type = "";
     private int arrayIndex, size;
 
-    private PredefinedVar pVar;
-    private JsonParser dataParser;
+    // private PredefinedVar pVar;
+    protected JsonParser dataParser;
     internal UnrealArchive Ar;
     private UPropertyManager uPropertyManager;
     internal DeserializerState state;
@@ -32,7 +20,6 @@ public class UPropertyManager
     {
         Ar = unrealArchive;
         dataParser = new JsonParser();
-        pVar = new PredefinedVar();
         state = new DeserializerState();
         uPropertyManager = this;
     }
@@ -64,88 +51,68 @@ public class UPropertyManager
 
     public bool DeserializeUProperty()
     {
-        Ar.Deserialize(ref name);
+        name = Ar.Deserialize<string>();
 
-        if(Util.IsUPropertyStatic(name))
-        {
-            Util.ManageStaticArrayDeserialization(Ar, uPropertyManager, name, dataParser);
-        }
         if (name == "None")
         {
             if (state.loadingStruct) state.loadingStruct = false;
             return false;
         }
-        Ar.Deserialize(ref type);
-        Ar.Deserialize(ref size);
-        Ar.Deserialize(ref arrayIndex);
+        type = Ar.Deserialize<string>();
+        size = Ar.Deserialize<int>();
+        arrayIndex = Ar.Deserialize<int>();
 
         return ConstructPropertyValue();
     }
 
     internal bool ConstructPropertyValue()
     {
+        object defaultParse;
         switch (type)
         {
+            // easy cases
             case "IntProperty":
-                Ar.Deserialize(ref pVar._int);
-                ParseSaveData(name, pVar._int, type, arrayIndex);
-                return true;
-
+                defaultParse = Ar.Deserialize<int>();             
+                break;
             case "FloatProperty":
-                Ar.Deserialize(ref pVar._float);
-                ParseSaveData(name, pVar._float, type, arrayIndex);
-                return true;
+                defaultParse = Ar.Deserialize<float>();             
+                break;
+            case "BoolProperty":
+                defaultParse = Ar.Deserialize<bool>();           
+                break;
 
             case "ByteProperty":
-                string enumName = "";
-                Ar.Deserialize(ref enumName);
+                string enumName = Ar.Deserialize<string>();
                 if (enumName == "None")
                 {
                     // property pulled in None
-                    Ar.Deserialize(ref pVar._byte);
-                    ParseSaveData(name, pVar._byte, type, arrayIndex);
+                    ParseSaveData(name, Ar.Deserialize<byte>(), type, arrayIndex);
                 }
                 else
                 {
                     //property pulled in enum
-                    string enumValue = "";
-                    Ar.Deserialize(ref enumValue);
-                    ParseSaveData(name, pVar._byte, type, arrayIndex, enumName, enumValue);
+                    ParseSaveData(name, 0, type, arrayIndex, enumName, Ar.Deserialize<string>());
                 }
                 return true;
 
-            case "BoolProperty":
-                Ar.Deserialize(ref pVar._bool);
-                ParseSaveData(name, pVar._bool, type, arrayIndex);
-                return true;
-
             case "StrProperty":
-                if (Ar.Deserialize(Globals.InfoGrab) == 0) // handles empty string case
+            case "NameProperty":
+                if (Ar.Deserialize<int>() == 0) // handles empty string case
                 {
                     ParseSaveData(name, "", type, arrayIndex);
                     return true;
                 }
                 Ar.ChangeStreamPosition(-Globals.InfoGrab);
-                Ar.Deserialize(ref pVar._str);
-                ParseSaveData(name, pVar._str, type, arrayIndex);
-                return true;
-
-            // TODO: we need to handle these differently.
-            // we could probably do something like pulling all the names from the ib ini file, locating the name, then creating an instance of a name to match
-            case "NameProperty":
-                Ar.Deserialize(ref pVar._name);
-                ParseSaveData(name, pVar._name, type, arrayIndex);
+                ParseSaveData(name, Ar.Deserialize<string>(), type, arrayIndex);
                 return true;
 
             case "StructProperty":
                 state.loadingStruct = true;  // detected struct
-                Ar.Deserialize(ref pVar._str);
-                DeserializeUStruct(pVar._str);
+                DeserializeUStruct(Ar.Deserialize<string>());
                 return true;
 
             case "ArrayProperty":
-                int arraySize = 0;
-                Ar.Deserialize(ref arraySize);  // we need the array size to know how much to read
+                int arraySize = Ar.Deserialize<int>();
 
                 if (arraySize == 0)
                 {
@@ -159,6 +126,8 @@ public class UPropertyManager
                 ConsoleHelper.DisplayColoredText($"Unsupported property type: {type}", ConsoleHelper.ConsoleColorChoice.Red);
                 return false;
         }
+        ParseSaveData(name, defaultParse, type, arrayIndex);   
+        return true;
     }
 
     private void DeserializeUArray(string arrayName, int arraySize)
@@ -167,7 +136,6 @@ public class UPropertyManager
         {
             Util.ManageDynamicArrayDeserialization(Ar, arrayName, arraySize, dataParser);
         }
-
         else DeserializeArray(arraySize);
     }
 
@@ -203,6 +171,51 @@ public class UPropertyManager
         LoopUPropertyDeserialization();
         dataParser.TerminateObj();
     }
+
+    public class UDynamicArrayManager<T> : UPropertyManager
+    {
+        private Type constructType { get; set;}
+        private int arraySize { get; set;}
+        private string arrayName { get; set;}
+
+        // Constructor that matches the base class constructor
+        public UDynamicArrayManager(UnrealArchive Ar, string arName, int arSize, JsonParser dparser) : base(Ar) // Call the base constructor
+        {
+            this.dataParser = dparser;
+            arrayName = arName;
+            arraySize = arSize;
+            constructType = typeof(T); // Set the type for later use
+            DeserializeDynamicArray();
+        }
+
+        private void DeserializeDynamicArray()
+        {
+            dataParser.ProcessArray(arrayName); // Start the array with the name, all pathways need this
+            if (constructType == typeof(string))
+                DeserializeString();
+            else
+                DeserializeNumber();
+            dataParser.TerminateArray();
+        }
+
+        private void DeserializeString()
+        {
+            for (int i = 0; i < arraySize; i++)
+                dataParser.WriteStringValue((dynamic)Ar.Deserialize<T>()!);
+        }
+
+        private void DeserializeNumber()
+        {
+            for (int i = 0; i < arraySize; i++)
+                dataParser.WriteNumberValue((dynamic)Ar.Deserialize<T>()!);
+        }
+    }
+
+    // class UStaticPropertyManager<T>
+    // {
+    //     public UStaticPropertyManager(UnrealArchive Ar, UPropertyManager uPropertyManager, string arrayName, JsonParser dParse)
+    //     {
+    //     }
+    // }
+
 }
-
-

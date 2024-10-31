@@ -4,7 +4,8 @@ public class Util
 {
     public static int ConvertEndian(byte[] bytes)
     {
-        try{
+        try
+        {
              if (!BitConverter.IsLittleEndian)  
             {
                 Array.Reverse(bytes);
@@ -78,7 +79,7 @@ public class Util
         Activator.CreateInstance(arrayReflectionType, Ar, manager, arrayName, dataParser);  // create instance of class with generic type
 
     private static Type CreateDynamicGenericType(Type genericType) =>
-        typeof(UDynamicArrayManager<>).MakeGenericType(genericType);
+        typeof(UPropertyManager.UDynamicArrayManager<>).MakeGenericType(genericType);
 
     private static Type CreateStaticGenericType(Type genericType) =>
         typeof(UStaticPropertyManager<>).MakeGenericType(genericType);

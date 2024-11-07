@@ -569,23 +569,23 @@ class JsonSerializer
 
     private void SerializeStringValue(string str)
     {
-        str = str + char.MinValue;  // create null terminator
-        byte[] _buffer = Util.IntToLittleEndianBytes(str.Length);
-        serialize(_buffer);
-        _buffer = System.Text.Encoding.UTF8.GetBytes(str);
-        serialize(_buffer);
+        // str = str + char.MinValue;  // create null terminator
+        // byte[] _buffer = Util.ToLittleEndianBytes(str.Length);
+        // serialize(_buffer);
+        // _buffer = System.Text.Encoding.UTF8.GetBytes(str);
+        // serialize(_buffer);
     }
 
     private void SerializeIntValue(int value)
     {
-        byte[] _buffer = Util.IntToLittleEndianBytes(value);
-        serialize(_buffer);
+        // byte[] _buffer = Util.ToLittleEndianBytes(value);
+        // serialize(_buffer);
     }
 
     private void SerializeFloatValue(float value)
     {
-        byte[] _buffer = Util.FloatToLittleEndianBytes(value);
-        serialize(_buffer);
+        // byte[] _buffer = Util.FloatToLittleEndianBytes(value);
+        // serialize(_buffer);
     }
 
     private void SerializeBooleanValue(bool value) => SerializeByteValue(Convert.ToByte(value));

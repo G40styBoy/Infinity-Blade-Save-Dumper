@@ -1,14 +1,16 @@
 ﻿using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 
 public class UnrealArchive
 {
-
-    internal FileStream saveStream;  // aquire private name for the filesteram
-    //internal StreamWriter streamWrite;
+    internal FileStream saveStream;  
     internal BinaryReader bReader;
     internal BinaryWriter bWriter;
-    internal StreamWriter streamWriter;
-    internal bool leaveOpen;
+    internal bool leaveOpen 
+    {
+        get { return false; }
+        private set {}
+    }
     internal byte[] fileBytes;
 
     public enum ArchiveState
@@ -16,78 +18,43 @@ public class UnrealArchive
         LoadArchive,
         SaveArchive
     }
-    internal ArchiveState State { get; private set; }
+    internal ArchiveState serializationState;
     internal bool ArLoading;
     internal bool ArSaving;
-
 
     private void SetFileReadAndWrite(FileInfo fileInfo, bool val) => fileInfo.IsReadOnly = !val;  // function as a true = writable false = read only instead of vise versa
     public void ChangeStreamPosition(long amount) => saveStream.Position += amount;
     public void ChangeWriterPosition(long amount) => bWriter.BaseStream.Position = amount;
     public void ChangeReadPosition(long amount) => bReader.BaseStream.Position = amount;
-    internal byte[] ReadBytes(int count) => bReader.ReadBytes(count);
-    private void GetFileBytes(string saveFile, ref byte[] bytes) => bytes = File.ReadAllBytes(saveFile);
-    public string CleanNullTerminator(string str) => str.Remove(str.Length-1);
-    public void CleanNullTerminator(ref string str) => str.Remove(str.Length-1);
-    
-    public UnrealArchive(string fileName, FileMode mode, bool leaveOpen, Enum classState)
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Span<byte> ReadBytes(int count) => bReader.ReadBytes(count);
+
+   
+    public UnrealArchive(FileMode mode, bool leaveOpen, Enum classState)
     {
+        // TODO; Need to adjust the scope of the try block
         try
         {
-
-            var State = (ArchiveState)classState;
-
-            if (State == ArchiveState.LoadArchive)
+            // pre-req task's 
+            serializationState = (ArchiveState)classState;
+            string fileName = SetFilePath();
+            if (serializationState == ArchiveState.LoadArchive)
             {
                 ClearFileHexContents(Globals.binaryOutput);
             }
 
-            // Ensure the file exists and is not empty.
-            if (!File.Exists(fileName))
-            {
-                ConsoleHelper.DisplayColoredText("Error: File not found " + fileName, ConsoleHelper.ConsoleColorChoice.Red);
-                return;
-            }
-            else if (new FileInfo(fileName).Length == 0 && State == ArchiveState.SaveArchive)  // if we are reading the file and its empty, there is nothing to read
-            {
-                ConsoleHelper.DisplayColoredText("Error: File empty for reading " + fileName, ConsoleHelper.ConsoleColorChoice.Red);
-                return;
-            }
+            CheckFileValidity(fileName); // check file status
+            GetFileBytes(fileName, ref fileBytes!); // fetches the bytes for the file, this is used for deserialization
 
-            // fetches the bytes for the file, this is used for deserialization
-            GetFileBytes(fileName, ref fileBytes);
-
-            // Open the file stream with read/write access.
-            saveStream = new FileStream(fileName, mode, FileAccess.ReadWrite);
-            //streamWriter = new StreamWriter(saveStream, Encoding.UTF8);
-
-            // Check if the file is read-only AFTER opening the stream
-            if ((File.GetAttributes(fileName) & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
-            {
+            saveStream = new FileStream(fileName, mode, FileAccess.ReadWrite);  
+            if (IsReadOnly(fileName))  // check perms
                 Console.WriteLine("Warning: File is read-only: " + fileName);
-                return;
-            }
 
-            // Initialize reader/writer based on readWriteStatus
-            if (State == ArchiveState.SaveArchive)
-            {
-                bReader = new BinaryReader(saveStream);
-                ArSaving = true;
-            }
-            else if (State == ArchiveState.LoadArchive)
-            {
-                bWriter = new BinaryWriter(saveStream);
-                ArLoading = true;
-            }
-            else
-            {
-                // type not set, throw error
-                ConsoleHelper.DisplayColoredText("Error: Archive type not set.", ConsoleHelper.ConsoleColorChoice.Red);
-                return;
-            }
+            InitializeReadWrite();
+            InitializeFileHandler();
 
-            // Store leaveOpen flag
-            this.leaveOpen = leaveOpen; 
+            this.leaveOpen = leaveOpen;
         }
         catch (UnauthorizedAccessException) 
         {
@@ -101,6 +68,74 @@ public class UnrealArchive
         {
             Console.WriteLine("Error: An IO error occurred while accessing the file.");
         }
+    }
+
+    private void InitializeFileHandler()
+    {
+        if (ArSaving) 
+        {
+            UPropertyManager uManager = new UPropertyManager(this);
+            uManager.DeserializeDataToJson();  //deserialize file
+        }
+        else if(ArLoading) 
+        {
+            new JsonSerializer(this);
+        }
+    }
+
+    private string SetFilePath()
+    {
+        if (serializationState == ArchiveState.SaveArchive) return Globals.saveFile[0];
+        else if (serializationState == ArchiveState.LoadArchive) return Globals.binaryOutput;
+        return "";
+    }
+
+    private bool InitializeReadWrite()
+    {
+        // Initialize reader/writer based on readWriteStatus
+        if (serializationState == ArchiveState.SaveArchive)
+        {
+            bReader = new BinaryReader(saveStream);
+            ArSaving = true;
+            return true;
+        }
+        else if (serializationState == ArchiveState.LoadArchive)
+        {
+            bWriter = new BinaryWriter(saveStream);
+            ArLoading = true;
+            return true;
+        }
+        else
+        {
+            ConsoleHelper.DisplayColoredText("Error: Archive type not set.", ConsoleHelper.ConsoleColorChoice.Red);
+            return false;
+        }
+    }
+
+    private bool CheckFileValidity(string fileName)
+    {
+        if (!File.Exists(fileName))
+        {
+            ConsoleHelper.DisplayColoredText("Error: File not found " + fileName, ConsoleHelper.ConsoleColorChoice.Red);
+            return false;
+        }
+        if (new FileInfo(fileName).Length == 0 && serializationState == ArchiveState.SaveArchive)  // if we are reading the file and its empty, there is nothing to read
+        {
+            ConsoleHelper.DisplayColoredText("Error: File empty for reading " + fileName, ConsoleHelper.ConsoleColorChoice.Red);
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool IsReadOnly(string fileName)
+    {
+        if ((File.GetAttributes(fileName) & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+        {
+            Console.WriteLine("Warning: File is read-only: " + fileName);
+            return true;
+        }        
+        return false;
     }
 
     private void ClearFileHexContents(string filePath)
@@ -123,39 +158,36 @@ public class UnrealArchive
         }
     }
 
-    public valueType Deserialize<valueType>([Optional] int readCount)
-    {
-        Type genericType = typeof(valueType);
-        byte[] bytes;
-
-        switch (Type.GetTypeCode(genericType))
-        {
-            case TypeCode.Int32:
-                bytes = ReadBytes(Globals.InfoGrab);
-                return (valueType)(object)Convert.ToInt32(Util.ConvertEndian(bytes));
-            case TypeCode.Single:
-                bytes = ReadBytes(Globals.InfoGrab);
-                return (valueType)(object)BitConverter.ToSingle(bytes);
-            case TypeCode.String:
-                bytes = ReadBytes(Convert.ToInt32(Util.ConvertEndian(Deserialize<byte[]>())));
-                return (valueType)(object)CleanNullTerminator(System.Text.Encoding.UTF8.GetString(bytes));
-            case TypeCode.Boolean:
-                bytes = ReadBytes(1); // bool
-                return (valueType)(object)BitConverter.ToBoolean(bytes);
-            case TypeCode.Byte:
-                return (valueType)(object)ReadBytes(1)[0];
-            default:
-                if (genericType == typeof(byte[]))
-                {
-                    return (valueType)(object)ReadBytes(Globals.InfoGrab);
-                }
-                else
-                {
-                    Console.WriteLine($"{genericType} Value Type not accounted for!");
-                    return default(valueType);
-                }
-        }
+    private void GetFileBytes(string saveFile, ref byte[] fileBytes)
+    { 
+        if (serializationState == ArchiveState.SaveArchive)
+          fileBytes = File.ReadAllBytes(saveFile);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Deserialize(ref int value) => value = BitConverter.ToInt32( ReadBytes(4) );
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Deserialize(ref float value) => value = BitConverter.ToSingle( ReadBytes(4) );
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Deserialize(ref bool value) => value = BitConverter.ToBoolean( ReadBytes(1) );
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Deserialize(ref byte value) => value = ReadBytes(1)[0];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Deserialize(ref string value) 
+    {
+        Span<byte> bytes = ReadBytes( BitConverter.ToInt32( ReadBytes(4) ) );
+        value = System.Text.Encoding.UTF8.GetString(bytes).TrimEnd('\0'); 
+    }
+
+    //     public void Dispose()
+    // {
+    //     _reader?.Dispose();
+    //     _writer?.Dispose();
+    //     _fileStream?.Dispose();
+    //     GC.SuppressFinalize(this);
+    // }
 }

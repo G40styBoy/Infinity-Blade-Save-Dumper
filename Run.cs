@@ -1,75 +1,27 @@
-using System.ComponentModel;
-
-class Run
+public class Run
 {
     private enum ClassState
     {
         LoadArchive,
         SaveArchive
     }
-    private static ClassState State { get; set; }
-    private static string? file;
-    // other
+
     private static int linesMade;
-    // private static bool debug = true;  // show UI bool
 
     public static void Main()
     {
-        State = ClassState.SaveArchive;  // load or save
-
-
-        if (State == ClassState.SaveArchive) file = Globals.saveFile[0];
-        else if (State == ClassState.LoadArchive) file = Globals.binaryOutput;
-        UnrealArchive save = new UnrealArchive(file!, FileMode.Open, true, State);  // true or false for saving or loading
-
-        if (save.ArSaving) 
-        {
-            UPropertyManager uManager = new UPropertyManager(save);
-            uManager.DeserializeDataToJson();  //deserialize file
-        }
-        else if(save.ArLoading) 
-        {
-            new JsonSerializer(save);
-        }
-
+        UnrealArchive save = new UnrealArchive(FileMode.Open, true, ClassState.SaveArchive);  // true or false for saving or loading
         Exit(save);
-
-        // object someInt = 100;
-        // object Float = 1f;
-        // Deserialize<int>(ref someInt);
-        // Deserialize<float>(ref Float);
-        // Deserialize<string>(ref someInt);
-
-        // Console.ReadKey();
-
-
     } 
 
-
-    public static void Deserialize<valueType>(ref object somevalue)
-    {
-        var type = typeof(valueType);
-        if (type == typeof(int))
-        {
-            somevalue = 1000;
-        }
-        if (type == typeof(float))
-        {
-            somevalue = 10f;
-        }
-        System.Console.WriteLine(type);
-        System.Console.WriteLine(somevalue + "\n");
-    }
-
-
     // For now, we only expect one stream to be opened by the program.
-    public static void Exit(UnrealArchive ar)
+    public static void Exit(UnrealArchive Ar)
     {
-        if (ar.bReader != null) ar.bReader.Dispose();
-        else if (ar.bWriter != null) ar.bWriter.Dispose();
-        if (!ar.leaveOpen) ar.saveStream.Dispose();
+        if (Ar.bReader != null) Ar.bReader.Dispose();
+        else if (Ar.bWriter != null) Ar.bWriter.Dispose();
+        if (!Ar.leaveOpen) Ar.saveStream.Dispose();
 
-        if (ar.ArLoading)
+        if (Ar.ArLoading)
         {
             ConsoleHelper.DisplayColoredText("\nContent Difference Report", ConsoleHelper.ConsoleColorChoice.Magenta);
             FileComparer comparer = new FileComparer(Globals.saveFile[0], Globals.binaryOutput);
@@ -77,7 +29,6 @@ class Run
         }
         Finished();
     }
-
     
     public static void ClearConsoleLines()
     {
@@ -96,8 +47,6 @@ class Run
         Console.SetCursorPosition(0, newLineCursor);
     }
 
-
-
     public static void WriteLine(string str)
     {
         Console.WriteLine(str);
@@ -114,8 +63,6 @@ class Run
 
 class ConsoleHelper
 {
-
-    
     public enum ConsoleColorChoice
     {
         Red,
@@ -157,17 +104,12 @@ class ConsoleHelper
                 break;
         }
     }
-
-
-
     public static void DisplayColoredText(string text, ConsoleHelper.ConsoleColorChoice color)
     {
         SetConsoleTextColor(color);
         Console.WriteLine(text);
         Console.ResetColor();  
     }
-
-    
 
 }
 

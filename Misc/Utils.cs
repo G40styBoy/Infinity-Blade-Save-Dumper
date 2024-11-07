@@ -1,51 +1,90 @@
-﻿using System.Reflection;
+﻿using System.Runtime.CompilerServices;
+using System.Reflection;
 
 public class Util
 {
-    public static int ConvertEndian(byte[] bytes)
-    {
-        try
-        {
-             if (!BitConverter.IsLittleEndian)  
-            {
-                Array.Reverse(bytes);
-            }
-            return BitConverter.ToInt32(bytes);       
-        }
+    // // not needed
+    // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    // public static int ToInt32FromBytes(byte[] bytes)
+    // {
+    //     try
+    //     {
+    //         if (bytes.Length != sizeof(int))
+    //         {
+    //             throw new ArgumentException("Byte array must be 4 bytes long.");
+    //         }
+    //         if (!BitConverter.IsLittleEndian)
+    //         {
+    //             Array.Reverse(bytes);
+    //         }
 
-        catch(ArgumentOutOfRangeException)
+    //         return BitConverter.ToInt32(bytes, 0);
+    //     }
+    //     catch (ArgumentOutOfRangeException)
+    //     {
+    //         Console.WriteLine("ArgumentOutOfRangeException: Invalid byte array length.");
+    //         return 0;
+    //     }
+    //     catch (ArgumentException ex)
+    //     {
+    //         Console.WriteLine(ex.Message);
+    //         return 0;
+    //     }
+    // }
+
+    // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    // public static byte[] ToLittleEndianBytes(int value)
+    // {
+    //     byte[] bytes = new byte[sizeof(int)];
+    //     BitConverter.GetBytes(value).CopyTo(bytes, 0);
+
+    //     if (!BitConverter.IsLittleEndian)
+    //     {
+    //         Array.Reverse(bytes);
+    //     }
+
+    //     return bytes;
+    // }
+
+    // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    // public static byte[] FloatToLittleEndianBytes(float value)
+    // {
+    //     byte[] bytes = BitConverter.GetBytes(value); 
+
+    //     if (!BitConverter.IsLittleEndian)
+    //     {
+    //         Array.Reverse(bytes);
+    //     }
+
+    //     return bytes;
+    // }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int ReturnClampedInt(int value)
+    {
+        if (value > int.MaxValue || (value < 0 && value != -1))
         {
-            Console.WriteLine("ArgumentOutOfRangeException");
-            return 0;
+            value = int.MaxValue;
         }
+        return value;
     }
 
-    public static byte[] IntToLittleEndianBytes(int value)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static byte ReturnClampedByte(byte value)
     {
-        byte[] bytes = new byte[sizeof(int)]; // Allocate on the heap
-        BitConverter.TryWriteBytes(bytes, value);
-
-        if (!BitConverter.IsLittleEndian)
+        if (value < 0)
         {
-            Array.Reverse(bytes);
+            value = 0; // Clamp negative values to 0
+        }
+        else if (value > 255)
+        {
+            value = 255; // Clamp values greater than 255 to 255
         }
 
-        return bytes; // Now you can safely return the Span<byte>
-    }
-    // public static void ChangeConsoleColor(Console.ConsoleColor)
-    public static byte[] FloatToLittleEndianBytes(float value)
-    {
-        byte[] bytes = BitConverter.GetBytes(value); 
-
-        if (!BitConverter.IsLittleEndian)
-        {
-            Array.Reverse(bytes);
-        }
-
-        return bytes;
+        return value;
     }
 
-
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Truncate(float value)
     {
         if (value.ToString().Contains(".")) return true;

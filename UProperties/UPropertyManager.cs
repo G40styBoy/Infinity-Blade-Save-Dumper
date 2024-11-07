@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Runtime.CompilerServices;
 using System.Text;
 
 public class UPropertyManager
@@ -8,27 +8,43 @@ public class UPropertyManager
     private string type = "";
     private int arrayIndex, size;
 
-    // private PredefinedVar pVar;
-    protected JsonParser dataParser;
+    internal protected JsonParser dataParser;
+    private protected OptimizeViaPredefine var;
     internal UnrealArchive Ar;
-    private UPropertyManager uPropertyManager;
     internal DeserializerState state;
 
-    private void ParseSaveData(string name, object value, string type, int arrayIndex, [Optional] string enumName, [Optional] string enumValue) => dataParser.ParseSaveData(name, value, type, arrayIndex, enumName, enumValue);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ParseSaveData(string name, object value, string type, int arrayIndex) => 
+        dataParser.ParseSaveData(name, value, type, arrayIndex);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ParseSaveData(string name, object value, string type, int arrayIndex, string enumName, string enumValue) => 
+        dataParser.ParseSaveData(name, value, type, arrayIndex, enumName, enumValue);
+
 
     public UPropertyManager(UnrealArchive unrealArchive)
     {
         Ar = unrealArchive;
+        var = new OptimizeViaPredefine();
         dataParser = new JsonParser();
         state = new DeserializerState();
-        uPropertyManager = this;
     }
 
     public class DeserializerState
     {
-        internal bool loadingStruct = false;
-        internal bool loadingStaticArray = false;
-        internal string lastStaticArrayName = "";
+        internal protected bool loadingStruct = false;
+        internal protected bool loadingStaticArray = false;
+        internal protected string lastStaticArrayName = "";
+    }
+
+    public class OptimizeViaPredefine
+    {
+        internal protected int _int = 0;
+        internal protected float _float = 0f;
+        internal protected string _str = "";
+        internal protected string _name = "";
+        internal protected byte _byte = 0;
+        internal protected bool _bool = false;
     }
 
     internal void DeserializeDataToJson()
@@ -49,70 +65,78 @@ public class UPropertyManager
         ConsoleHelper.DisplayColoredText("File Deserialized!", ConsoleHelper.ConsoleColorChoice.Green);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool DeserializeUProperty()
     {
-        name = Ar.Deserialize<string>();
-
+        Ar.Deserialize(ref name);
         if (name == "None")
         {
             if (state.loadingStruct) state.loadingStruct = false;
             return false;
         }
-        type = Ar.Deserialize<string>();
-        size = Ar.Deserialize<int>();
-        arrayIndex = Ar.Deserialize<int>();
+        Ar.Deserialize(ref type);
+        Ar.Deserialize(ref size);
+        Ar.Deserialize(ref arrayIndex);
 
         return ConstructPropertyValue();
     }
 
     internal bool ConstructPropertyValue()
     {
-        object defaultParse;
+        object defaultParser = 0;
         switch (type)
         {
-            // easy cases
             case "IntProperty":
-                defaultParse = Ar.Deserialize<int>();             
+                Ar.Deserialize(ref var._int);                
+                defaultParser = var._int;
                 break;
             case "FloatProperty":
-                defaultParse = Ar.Deserialize<float>();             
-                break;
+                Ar.Deserialize(ref var._float);        
+                defaultParser = var._float;
+                break;        
             case "BoolProperty":
-                defaultParse = Ar.Deserialize<bool>();           
+                Ar.Deserialize(ref var._bool);        
+                defaultParser = var._bool;
                 break;
 
             case "ByteProperty":
-                string enumName = Ar.Deserialize<string>();
+                string enumName = "";
+                Ar.Deserialize(ref enumName);
                 if (enumName == "None")
                 {
                     // property pulled in None
-                    ParseSaveData(name, Ar.Deserialize<byte>(), type, arrayIndex);
+                    Ar.Deserialize(ref var._byte);
+                    defaultParser = var._byte;  
+                    break;
                 }
-                else
-                {
-                    //property pulled in enum
-                    ParseSaveData(name, 0, type, arrayIndex, enumName, Ar.Deserialize<string>());
-                }
+                //property pulled in enum
+                Ar.Deserialize(ref var._str);
+                ParseSaveData(name, 0, type, arrayIndex, enumName, var._str);
                 return true;
 
             case "StrProperty":
             case "NameProperty":
-                if (Ar.Deserialize<int>() == 0) // handles empty string case
+                Ar.Deserialize(ref var._int);
+                if (var._int == 0) // handles empty string case
                 {
                     ParseSaveData(name, "", type, arrayIndex);
                     return true;
                 }
-                Ar.ChangeStreamPosition(-Globals.InfoGrab);
-                ParseSaveData(name, Ar.Deserialize<string>(), type, arrayIndex);
+                Ar.ChangeStreamPosition(-4);
+                Ar.Deserialize(ref var._str);
+                ParseSaveData(name, var._str, type, arrayIndex);
                 return true;
 
             case "StructProperty":
+                string structName = "";
+                Ar.Deserialize(ref structName);
                 state.loadingStruct = true;  // detected struct
-                DeserializeUStruct(Ar.Deserialize<string>());
+                DeserializeUStruct(structName);
                 return true;
 
             case "ArrayProperty":
-                int arraySize = Ar.Deserialize<int>();
+                int arraySize = 0;
+                Ar.Deserialize(ref arraySize);
 
                 if (arraySize == 0)
                 {
@@ -126,8 +150,13 @@ public class UPropertyManager
                 ConsoleHelper.DisplayColoredText($"Unsupported property type: {type}", ConsoleHelper.ConsoleColorChoice.Red);
                 return false;
         }
-        ParseSaveData(name, defaultParse, type, arrayIndex);   
+        ParseSaveData(name, defaultParser, type, arrayIndex);
         return true;
+    }
+
+    private bool CheckForStaticName()
+    {
+        return false;
     }
 
     private void DeserializeUArray(string arrayName, int arraySize)
@@ -149,7 +178,8 @@ public class UPropertyManager
     private void DeserializeArray(int arraySize)
     {
         dataParser.ProcessArray(name); // Start the array with the name
-        for (int i = 0; i < arraySize; i++) ProcessEntry();
+        for (int i = 0; i < arraySize; i++) 
+            ProcessEntry();
         dataParser.TerminateArray();
     }
 
@@ -174,9 +204,8 @@ public class UPropertyManager
 
     public class UDynamicArrayManager<T> : UPropertyManager
     {
-        private Type constructType { get; set;}
-        private int arraySize { get; set;}
         private string arrayName { get; set;}
+        private int arraySize { get; set;}
 
         // Constructor that matches the base class constructor
         public UDynamicArrayManager(UnrealArchive Ar, string arName, int arSize, JsonParser dparser) : base(Ar) // Call the base constructor
@@ -184,38 +213,47 @@ public class UPropertyManager
             this.dataParser = dparser;
             arrayName = arName;
             arraySize = arSize;
-            constructType = typeof(T); // Set the type for later use
             DeserializeDynamicArray();
         }
 
         private void DeserializeDynamicArray()
         {
             dataParser.ProcessArray(arrayName); // Start the array with the name, all pathways need this
-            if (constructType == typeof(string))
-                DeserializeString();
-            else
-                DeserializeNumber();
+            Deserialize<T>();
             dataParser.TerminateArray();
         }
 
-        private void DeserializeString()
+        public void Deserialize<T>()
         {
+            Type type = typeof(T);
             for (int i = 0; i < arraySize; i++)
-                dataParser.WriteStringValue((dynamic)Ar.Deserialize<T>()!);
-        }
+            {
+                switch (Type.GetTypeCode(type))
+                {
+                    case TypeCode.Int32:
+                        Ar.Deserialize(ref var._int);
+                        dataParser.WriteNumberValue(var._int);
+                        break;
 
-        private void DeserializeNumber()
-        {
-            for (int i = 0; i < arraySize; i++)
-                dataParser.WriteNumberValue((dynamic)Ar.Deserialize<T>()!);
+                    case TypeCode.Single:
+                        Ar.Deserialize(ref var._float);
+                        dataParser.WriteNumberValue(var._float);
+                        break;
+
+                    case TypeCode.String:
+                        Ar.Deserialize(ref var._str);
+                        dataParser.WriteStringValue(var._str);
+                        break;
+
+                    default:
+                        throw new NotSupportedException($"Type {typeof(T)} is not supported.");
+                }
+            }
         }
     }
+    class UStaticPropertyManager<T>
+    {
 
-    // class UStaticPropertyManager<T>
-    // {
-    //     public UStaticPropertyManager(UnrealArchive Ar, UPropertyManager uPropertyManager, string arrayName, JsonParser dParse)
-    //     {
-    //     }
-    // }
+    }
 
 }

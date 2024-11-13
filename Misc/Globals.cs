@@ -1,5 +1,4 @@
-﻿using System.IO;
-public class Globals
+﻿public class Globals
 {
     //public const string saveFile = "C:\\Users\\G40sty\\Documents\\VS Code\\Infinity Blade\\Save Editor\\SAVE\\Serialized Save Input\\*.bin"; 
     public static string[] saveFile = Directory.GetFiles("C:\\Users\\G40sty\\Documents\\VS Code\\Infinity Blade\\Save Editor\\SAVE\\Serialized Save Input", "*.bin");
@@ -18,20 +17,20 @@ public class Globals
     // these are types that arent structs
     public struct DynamicArrayTypes
     {
-        private readonly string EquippedItemNames;
-        private readonly string CurrentKeyItemList;
-        private readonly string EquippedItems;
-        private readonly string UsedKeyItemList;
-        private readonly string PurchasedPerks;
-        private readonly int GameFlagList;
-        private readonly string WorldItemOrderList;
-        private readonly string TreasureChestOpened;
-        private readonly string BossesGeneratedThisBloodline;
-        private readonly string PotentialBossElementalAttacks;
-        private readonly string CurrentBattleChallengeList;
-        private readonly string LoggedAnalyticsAchievements;
-        private readonly string McpAuthorizedServices;
-        private readonly float BossElementalRandList;
+        public readonly string EquippedItemNames;
+        public readonly string CurrentKeyItemList;
+        public readonly string EquippedItems;
+        public readonly string UsedKeyItemList;
+        public readonly string PurchasedPerks;
+        public readonly int GameFlagList;
+        public readonly string WorldItemOrderList;
+        public readonly string TreasureChestOpened;
+        public readonly string BossesGeneratedThisBloodline;
+        public readonly string PotentialBossElementalAttacks;
+        public readonly string CurrentBattleChallengeList;
+        public readonly string LoggedAnalyticsAchievements;
+        public readonly string McpAuthorizedServices;
+        public readonly float BossElementalRandList;
         public enum DynamicArrayList
         {
             EquippedItemNames,
@@ -51,25 +50,26 @@ public class Globals
         }
     }
 
+        // public readonly int NumConsumable;
+        // public readonly byte ShowConsumableBadge;
+        // public readonly string LastEquippedWeaponOfType;
+
+
+            //         NumConsumable,
+            // ShowConsumableBadge,
+            // LastEquippedWeaponOfType,
 
     public struct StaticArrayTypes
     {
-
-        private readonly int NumConsumable;
-        private readonly byte ShowConsumableBadge;
-        private readonly string LastEquippedWeaponOfType;
-        private readonly struct Currency;
-        private readonly struct Stats;
-        private readonly struct CharacterEquippedList;
-        private readonly struct GemCooker;
-        private readonly struct ItemForge;
-        private readonly struct PotionCauldron;
-        private readonly struct SavedCheevo;
+        public readonly struct Currency;
+        public readonly struct Stats;
+        public readonly struct CharacterEquippedList;
+        public readonly struct GemCooker;
+        public readonly struct ItemForge;
+        public readonly struct PotionCauldron;
+        public readonly struct SavedCheevo;
         public enum StaticArrayNameList
         {
-            NumConsumable,
-            ShowConsumableBadge,
-            LastEquippedWeaponOfType,
             Currency,
             Stats,
             CharacterEquippedList,

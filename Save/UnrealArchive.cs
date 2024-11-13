@@ -25,10 +25,11 @@ public class UnrealArchive
     private void SetFileReadAndWrite(FileInfo fileInfo, bool val) => fileInfo.IsReadOnly = !val;  // function as a true = writable false = read only instead of vise versa
     public void ChangeStreamPosition(long amount) => saveStream.Position += amount;
     public void ChangeWriterPosition(long amount) => bWriter.BaseStream.Position = amount;
-    public void ChangeReadPosition(long amount) => bReader.BaseStream.Position = amount;
+    public void ChangeReadPosition(long amount) => bReader.BaseStream.Position += amount;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Span<byte> ReadBytes(int count) => bReader.ReadBytes(count);
+    private ReadOnlySpan<byte> ReadBytes(int count) => 
+        bReader.ReadBytes(count);
 
    
     public UnrealArchive(FileMode mode, bool leaveOpen, Enum classState)
@@ -165,7 +166,8 @@ public class UnrealArchive
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Deserialize(ref int value) => value = BitConverter.ToInt32( ReadBytes(4) );
+    public void Deserialize(ref int value) => 
+        value = Util.Clamp(BitConverter.ToInt32( ReadBytes(4) ));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Deserialize(ref float value) => value = BitConverter.ToSingle( ReadBytes(4) );
@@ -174,20 +176,13 @@ public class UnrealArchive
     public void Deserialize(ref bool value) => value = BitConverter.ToBoolean( ReadBytes(1) );
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Deserialize(ref byte value) => value = ReadBytes(1)[0];
+    public void Deserialize(ref byte value) => 
+        value = Util.Clamp(ReadBytes(1)[0]);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Deserialize(ref string value) 
     {
-        Span<byte> bytes = ReadBytes( BitConverter.ToInt32( ReadBytes(4) ) );
+        ReadOnlySpan<byte> bytes = ReadBytes( BitConverter.ToInt32( ReadBytes(4) ) );
         value = System.Text.Encoding.UTF8.GetString(bytes).TrimEnd('\0'); 
     }
-
-    //     public void Dispose()
-    // {
-    //     _reader?.Dispose();
-    //     _writer?.Dispose();
-    //     _fileStream?.Dispose();
-    //     GC.SuppressFinalize(this);
-    // }
 }

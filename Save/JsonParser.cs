@@ -5,6 +5,16 @@ using System.Runtime.CompilerServices;
 
 public class JsonParser
 {
+    private const string IntProperty = "IntProperty";
+    private const string FloatProperty = "FloatProperty";
+    private const string ByteProperty = "ByteProperty";
+    private const string BoolProperty = "BoolProperty";
+    private const string StrProperty = "StrProperty";
+    private const string NameProperty = "NameProperty"; 
+    private const string StructProperty = "StructProperty";
+    private const string ArrayProperty = "ArrayProperty";
+    private const string None = "None";
+
     internal MemoryStream jsonStream;
     internal Utf8JsonWriter writer;
 
@@ -28,6 +38,7 @@ public class JsonParser
     internal void WriteBooleanValue(bool value) => writer.WriteBooleanValue(value);
     internal void WriteStringValue(string value) => writer.WriteStringValue(value);
     internal void WriteString(string propertyName, string value) => writer.WriteString(propertyName, value);
+    internal void WriteRawValue(string value) => writer.WriteRawValue(value);
     
 
     internal void WriteProperty(string name) => writer.WritePropertyName(name);  
@@ -43,18 +54,20 @@ public class JsonParser
             ParseNumConsumable(name, value, type, arrayIndex);
             return;
         }
-        if (name != null && type != "NameProperty" && type != "ByteProperty" && type != "StrProperty" || !string.IsNullOrEmpty(enumName)) WritePropertyName($"{name}");
+        if (name != null && type != NameProperty && type != ByteProperty && type != StrProperty || !string.IsNullOrEmpty(enumName))
+            WritePropertyName($"{name}");
 
         switch (type)
         {
-            case "IntProperty":
-                WriteNumberValue(Util.ReturnClampedInt((int)value));
+            case IntProperty:
+                //Util.ReturnClampedInt(
+                WriteNumberValue((int)value);  // clamp all final values before we write
                 break;
-            case "FloatProperty":
+            case FloatProperty:
                 if(!Util.Truncate((float)value)) writeFloat((float)value);
                 else WriteNumberValue((float)value);  // type float
                 break;
-            case "ByteProperty":
+            case ByteProperty:
                 if (!string.IsNullOrEmpty(enumName) && !string.IsNullOrEmpty(enumValue))
                 {
                     WriteConciseEnum(name!, enumName, enumValue);
@@ -62,17 +75,18 @@ public class JsonParser
                 else 
                 {
                     WritePropertyName($"b{name}");
-                    WriteNumberValue(Util.ReturnClampedByte((byte)value));
+                    //Util.ReturnClampedByte(
+                    WriteNumberValue((byte)value); // clamp all final values before we write
                 }  
                 break;
-            case "BoolProperty":
+            case BoolProperty:
                 WriteBooleanValue((bool)value);
                 break;
-            case "StrProperty":
+            case StrProperty:
                 WritePropertyName($"str{name}");
                 WriteStringValue((string)value);
                 break;
-            case "NameProperty":
+            case NameProperty:
                 WritePropertyName($"ini{name}");
                 WriteStringValue((string)value);
                 break;
@@ -86,7 +100,7 @@ public class JsonParser
 // TODO; optimize indenting code so it can be ran through one function
     private void ParseNumConsumable(string name, object value, string type, int idx)
     {
-        if (type != "IntProperty")
+        if (type != IntProperty)
         {
             Console.WriteLine("Not int!");
             return;
@@ -133,34 +147,37 @@ public class JsonParser
         Globals.eTouchRewardActor rewardActor = (Globals.eTouchRewardActor)idx;
         return rewardActor.ToString();
     }
-
    
-    internal void ProcessObj(string name)
+    internal void ProcessObj(string name = "")
     {
-        WriteStartobj(name); 
+        if (string.IsNullOrWhiteSpace(name))
+            WriteStartobj();
+        else
+            WriteStartobj(name);
         Flush();
     }
-    internal void ProcessObj()
-    {
-        WriteStartobj(); 
-        Flush();
-    }
+
     internal void TerminateObj()
     {
         WriteEndObj();
         Flush();
     }
+
     internal void ProcessArray()
     {
         WriteStartArray();
         Flush();
     }
-    internal void ProcessArray(string name) 
+
+    internal void ProcessArray(string name = "") 
     {
-        WritePropertyName(name); 
-        WriteStartArray(); 
+        if (string.IsNullOrWhiteSpace(name))
+            WriteStartArray();
+        else
+            WriteStartArray(name);
         Flush();
     }
+
     internal void TerminateArray()
     {
         WriteEndArray();
@@ -172,12 +189,10 @@ public class JsonParser
         TerminateArray();
     }
 
-    // TODO; i recognize this isnt the most optimal way to go about this, but for now it works
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void writeFloat(float floatvalue) 
+    private void writeFloat(float floatvalue)
     {
-        string floatStr = floatvalue.ToString("0.0################");
-        JsonElement jse = JsonDocument.Parse(floatStr).RootElement;
-        jse.WriteTo(writer);
+        var floatStr = floatvalue.ToString("0.0################", System.Globalization.CultureInfo.InvariantCulture);
+        WriteRawValue(floatStr);
     }
 }

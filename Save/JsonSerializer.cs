@@ -26,8 +26,9 @@ class JsonSerializer
     }
     private void serialize(byte[] bytes, int index) => bWriter.Write(bytes, index, bytes.Length);
     private void serialize(byte[] value) => bWriter.Write(value, 0, value.Length);
-    private bool IsDynamicArray(string name) => Util.IsArrayDynamic(name);
-    private Type GetArrayFieldType(string name) => Util.GetArrayVariableType<Globals.DynamicArrayTypes>(name);
+    // fix these later
+    // private bool IsDynamicArray(string name) => .IsArrayDynamic(name); 
+    // private Type GetArrayFieldType(string name) => Util.GetArrayVariableType<Globals.DynamicArrayTypes>(name);
 
 #endregion
 
@@ -347,7 +348,7 @@ class JsonSerializer
     {
         long arraySize = 0;
         int itemCount = 0;
-        bool isDynamic = IsDynamicArray(arrayName);  // reduce function calls needed
+        // bool isDynamic = false; //IsDynamicArray(arrayName);  // reduce function calls needed
         serializeState.arraysLoaded++;
 
         if (recursiveCall)
@@ -361,8 +362,8 @@ class JsonSerializer
         arraySize += dataSize;  // array entry count
         Read();
         
-        if (isDynamic) SerializeDynamicArray(ref itemCount, ref arraySize, GetArrayFieldType(arrayName));
-        else SerializeArrayEntry(ref itemCount, ref arraySize); // change this
+        // if (isDynamic) SerializeDynamicArray(ref itemCount, ref arraySize, GetArrayFieldType(arrayName));
+        // else SerializeArrayEntry(ref itemCount, ref arraySize); // change this
         WriteHeaderInfo(storeArrayDataPos, (int)arraySize, true, itemCount);
 
         serializeState.arraysLoaded--;

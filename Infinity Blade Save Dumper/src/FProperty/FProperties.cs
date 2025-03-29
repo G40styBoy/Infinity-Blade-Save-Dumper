@@ -1,12 +1,14 @@
 using SaveDumper.FArrayManager;
 using SaveDumper.UnrealPackageManager;
+using System.Runtime.CompilerServices;
+
 
 namespace SaveDumper.FPropertyManager;
 
 class FProperties
 {
-    private readonly Dictionary<string, FProperty> _properties = new();
-    private List<ArrayMetadata> gameArrayInfo = new(); 
+    private readonly Dictionary<string, FProperty> _properties = new();  // this is what we are storing all of our data in
+    private List<ArrayMetadata> gameArrayInfo = new(); // This is the array metadata for the current game version 
 
     /// <summary>
     /// Adds a property to the collection.
@@ -40,10 +42,11 @@ class FProperties
         return info;
     }
 
-    private bool IsTagEmpty(FProperty tag) => tag is null;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsTagEmpty(FProperty tag) => tag is null || tag.Name == FType.NONE;
 
     #pragma warning disable CS8618  // this warning is a pain in the ass, and i dont feel like dirtying up the code to fix it
-    public class FProperty
+    public record FProperty
     {
         public string Name { get; set; }
         public string Type { get; set; }
@@ -60,7 +63,7 @@ class FProperties
         public StructTag(UnrealPackage UPK, bool isTagEmpty)
         {
             StructProperties = new List<FProperty>(); // Ensures initialization
-            StructType = isTagEmpty ? string.Empty : UPK.ReadNullTerminatedString();
+            StructType = isTagEmpty ? string.Empty : UPK.ReadString();
         }
     }
 
@@ -71,11 +74,11 @@ class FProperties
         public ArrayMetadata ArrayInfo { get; set; }
 
         // null reference fix in the future
-        public ArrayTag(UnrealPackage UPK, ArrayMetadata? arrayInfo)
+        public ArrayTag(UnrealPackage UPK, ArrayMetadata arrayInfo)
         {
             ArrayEntries = new List<object>();
             ArrayEntryCount = UPK.DeserializeInt();
-            ArrayInfo = arrayInfo!;
+            ArrayInfo = arrayInfo;
         }
     }
     #pragma warning restore
@@ -90,8 +93,8 @@ class FProperties
             FType.BYTE_PROPERTY => UPK.DeserializeByteProperty(),
             FType.STR_PROPERTY => UPK.DeserializeString(),
             FType.NAME_PROPERTY => UPK.DeserializeString(),  // TODO: make a seperate functions later on down the line that actually finds the FName
-            FType.STRUCT_PROPERTY => DeserializeStruct(UPK, tag),
-            FType.ARRAY_PROPERTY => DeserializeArray(UPK, tag), 
+            FType.STRUCT_PROPERTY => DeserializeStructTag(UPK, tag),
+            FType.ARRAY_PROPERTY => DeserializeArrayTag(UPK, tag), 
             _ => throw new NotSupportedException($"Unsupported property type: {tag.Type}")
         };
     }
@@ -100,20 +103,18 @@ class FProperties
     {
         var tag = new FProperty();
 
-        tag.Name = UPK.ReadNullTerminatedString();
-        if (tag.Name == FType.NONE) 
+        tag.Name = UPK.ReadString();
+        if (IsTagEmpty(tag)) 
             return null!;  
 
-        tag.Type = UPK.ReadNullTerminatedString();
-
-        // Read property size and array index
+        tag.Type = UPK.ReadString();
         tag.Size = UPK.DeserializeInt();
         tag.ArrayIndex = UPK.DeserializeInt();
 
         return tag;
     }
 
-    private StructTag DeserializeStruct(UnrealPackage UPK, FProperty tag)
+    private StructTag DeserializeStructTag(UnrealPackage UPK, FProperty tag)
     {   
         var structTag = new StructTag(UPK, IsTagEmpty(tag));
 
@@ -133,21 +134,19 @@ class FProperties
     }
 
 
-    // TODO: Deserialize Different types of arrays
-    // this is fucked when it comes to nested shtuff
-    private ArrayTag DeserializeArray(UnrealPackage UPK, FProperty tag)  
+    // FIXME: Recursion issues when it comes to static arrays.
+    private ArrayTag DeserializeArrayTag(UnrealPackage UPK, FProperty tag)  
     {
-        var arrayTag = new ArrayTag(UPK, GetCurrentArray(tag.Name));
+        // a case where GetCurrentArray returns null will never happen, but account for it 
+        var arrayTag = new ArrayTag(UPK, GetCurrentArray(tag.Name) ?? throw new ArgumentNullException(nameof(tag.Name)));        
         var arrayInfo = arrayTag.ArrayInfo;
-
-        if (arrayTag.ArrayEntryCount == 0)
-            return null!;   
-
         if (arrayInfo == null)
         {
             Console.WriteLine($"ERROR: Array info for {tag.Name} could not be found.");
             return null!;
         }
+        if (arrayTag.ArrayEntryCount == 0)
+            return null!;   
 
         switch (arrayInfo.ArrayType)
         {
@@ -171,9 +170,9 @@ class FProperties
                     break;
                 case ValueType.FloatProperty: tag.ArrayEntries.Add(UPK.DeserializeFloat());
                     break;
-                case ValueType.StrProperty: tag.ArrayEntries.Add(UPK.ReadNullTerminatedString());
+                case ValueType.StrProperty: tag.ArrayEntries.Add(UPK.ReadString());
                     break;
-                case ValueType.StructProperty: tag.ArrayEntries.Add(DeserializeStruct(UPK, null!));
+                case ValueType.StructProperty: tag.ArrayEntries.Add(DeserializeStructTag(UPK, null!));
                     break;
                 default:
                     Console.WriteLine($"ERROR: Array type {arrayData.ValueType} is not supported.");

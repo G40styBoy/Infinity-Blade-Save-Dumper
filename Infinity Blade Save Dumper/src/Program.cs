@@ -7,9 +7,6 @@ public class Program
 {
     public static void Main()
     {
-
-
-        // Initialize the UnrealPackage instance.
         using (var UPK = new UnrealPackage(FilePaths.saveLocation[0]))
         {
             var properties = UPK.DeserializeUPK();

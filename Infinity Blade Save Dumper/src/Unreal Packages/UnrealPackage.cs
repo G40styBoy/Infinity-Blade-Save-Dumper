@@ -16,46 +16,19 @@ public class UnrealPackage : IDisposable
     internal PackageData _packageData;
     private bool _disposed = false;
 
-    public class PackageData
+    public record PackageData
     {
         public bool IsEncrypted { get; set; }
         public byte[] EncryptedInitialBytes = Array.Empty<byte>();
         public PackageType PackageType { get; set; }
     }
 
-    #pragma warning disable CS8618  // this warning is a pain in the ass, and i dont feel like dirtying up the code to fix it   
     public UnrealPackage(string filePath)
     {
         _filePath = filePath;
         _packageData = new PackageData(); 
         SetupFile();
-        OpenFile();
-        GetPackageInfo();
-    }
-    #pragma warning restore CS8618
 
-    private void SetupFile()
-    {
-        if (!File.Exists(_filePath))
-        {
-            throw new FileNotFoundException("The specified file does not exist.", _filePath);
-        }
-
-        try
-        {
-            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
-            {
-                // testing access here
-            }
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException("File is not accessible for read/write operations.", ex);
-        }
-    }
-
-    private void OpenFile()
-    {
         try
         {
             _fileStream = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
@@ -66,9 +39,30 @@ public class UnrealPackage : IDisposable
         {
             throw new InvalidOperationException("Could not open file stream.", ex);
         }
+
+        GetPackageInfo();
     }
 
-    // TODO: fixed values for now, need to tailor data based on file type
+    private void SetupFile()
+    {
+        if (!File.Exists(_filePath))
+            throw new FileNotFoundException("The specified file does not exist.", _filePath);
+        
+        try
+        {
+            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+            { 
+                // test access
+            } 
+        }
+        catch (Exception ex){
+            throw new InvalidOperationException("File is not accessible for read/write operations.", ex);
+        }
+            
+        
+    }
+
+    // TODO: fixed values for now, need to parse data respective to file type
     private void GetPackageInfo()
     {
         _packageData.PackageType = PackageType.IB3;
@@ -85,33 +79,32 @@ public class UnrealPackage : IDisposable
 
 
     public void LogStreamPosition() => Console.WriteLine($"Stream Position: {_fileStream.Position}");
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public long GetStreamPosition() => _fileStream.Position;
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetStreamPosition(long position) => _fileStream.Position = position;
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public long GetStreamLength() => _fileStream.Length;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ReadOnlySpan<byte> ReadBytes(int count) => _binaryReader.ReadBytes(count);
 
+
+    /// <summary>
+    /// Peeks the next bytes in the stream and returns them
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private byte[] PeekBytes(int count)
     {
         long originalPosition = _binaryReader.BaseStream.Position;
 
-        try
-        {
+        try{
             return _binaryReader.ReadBytes(count);
         }
-        finally
-        {
+        finally{
             _binaryReader.BaseStream.Position = originalPosition;
         }
     }
 
-    internal string ReadNullTerminatedString()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal string ReadString()
     {
         // int strLength = DeserializeInt();
         _fileStream.Position += 4; 
@@ -119,22 +112,21 @@ public class UnrealPackage : IDisposable
         var bytes = new List<byte>();
         byte currentByte;
         while ((currentByte = _binaryReader.ReadByte()) != 0)
-        {
             bytes.Add(currentByte);
-        }
+        
         return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal object DeserializeByteProperty()
     {
-        string enumName = ReadNullTerminatedString();
+        string enumName = ReadString();
 
         if (enumName == FType.NONE)
             return DeserializeByte();
         else
         {
-            string enumValue = ReadNullTerminatedString();
+            string enumValue = ReadString();
             return new KeyValuePair<string, string>(enumName, enumValue);
         }
     }
@@ -149,7 +141,7 @@ public class UnrealPackage : IDisposable
     internal bool DeserializeBool() => BitConverter.ToBoolean(ReadBytes(1));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal byte DeserializeByte() => ReadBytes(1)[0];
+    internal byte DeserializeByte() => _binaryReader.ReadByte();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal string DeserializeString()
@@ -157,9 +149,13 @@ public class UnrealPackage : IDisposable
         if (DeserializeInt() == 0)
             return "";
         DeserializeInt();
-        return ReadNullTerminatedString();
+        return ReadString();
     }
 
+    /// <summary>
+    /// Deserializes a UPK's contents
+    /// </summary>
+    /// <returns>Returns UPK FProperty contents via a dictionary</returns>
     internal Dictionary<string, FProperties.FProperty> DeserializeUPK()
     {
         var serializerInstance = new FProperties();
@@ -172,8 +168,17 @@ public class UnrealPackage : IDisposable
 
     private void DeserializePackageInfo() => _packageData.EncryptedInitialBytes = _binaryReader.ReadBytes(8);
 
+    /// <summary>
+    /// Gets all array metadata respective to the UPK's file type
+    /// </summary>
+    /// <returns></returns>
     internal List<ArrayMetadata> RequestArrayInfo() => FArrayInitializer.FetchArrayInfo(this);  // get array data   
 
+    /// <summary>
+    /// Retrieves the names of all arrays in the UPK
+    /// This is unfinished and not really needed atm
+    /// </summary>
+    /// <returns></returns>
     public List<string> ReturnSerializedArrayNames()
     {
         var arrayNames = new List<string>();
@@ -183,13 +188,13 @@ public class UnrealPackage : IDisposable
 
         while (GetStreamPosition() < GetStreamLength())
         {
-            string name = ReadNullTerminatedString();
+            string name = ReadString();
 
             if (name == "None"){
                 break;
             }
 
-            string type = ReadNullTerminatedString();
+            string type = ReadString();
             int size = DeserializeInt();
 
             // Check if the property is an array
@@ -205,13 +210,13 @@ public class UnrealPackage : IDisposable
                     break;
                 case "StructProperty":
                     for (int i = 0; i < 2; i++){
-                        ReadNullTerminatedString();
+                        ReadString();
                     }
                     _fileStream.Position += size; // Skip struct data
                     break;
                 case "ByteProperty":
                     _fileStream.Position += 4; // Array Index
-                    ReadNullTerminatedString();
+                    ReadString();
                     _fileStream.Position += size; // Skip struct data
                     break;
                 case "BoolProperty":
@@ -245,7 +250,6 @@ public class UnrealPackage : IDisposable
         // aes.Key = keyBytes;
         // aes.IV = ivBytes;
     }
-
 
     // ██████╗░███████╗░██████╗░█████╗░██╗░░░██╗██████╗░░█████╗░███████╗░██████╗
     // ██╔══██╗██╔════╝██╔════╝██╔══██╗██║░░░██║██╔══██╗██╔══██╗██╔════╝██╔════╝

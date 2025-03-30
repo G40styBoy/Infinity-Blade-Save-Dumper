@@ -27,39 +27,28 @@ public class UnrealPackage : IDisposable
     {
         _filePath = filePath;
         _packageData = new PackageData(); 
-        SetupFile();
-
-        try
-        {
-            _fileStream = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-            _binaryReader = new BinaryReader(_fileStream, Encoding.UTF8, leaveOpen: true);
-            _binaryWriter = new BinaryWriter(_fileStream, Encoding.UTF8, leaveOpen: true);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException("Could not open file stream.", ex);
-        }
-
-        GetPackageInfo();
-    }
-
-    private void SetupFile()
-    {
         if (!File.Exists(_filePath))
             throw new FileNotFoundException("The specified file does not exist.", _filePath);
         
         try
         {
-            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
-            { 
+            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite)){ 
                 // test access
             } 
         }
         catch (Exception ex){
             throw new InvalidOperationException("File is not accessible for read/write operations.", ex);
         }
-            
-        
+        try{
+            _fileStream = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+            _binaryReader = new BinaryReader(_fileStream, Encoding.UTF8, leaveOpen: true);
+            _binaryWriter = new BinaryWriter(_fileStream, Encoding.UTF8, leaveOpen: true);
+        }
+        catch (Exception ex){
+            throw new InvalidOperationException("Could not open file stream.", ex);
+        }
+
+        GetPackageInfo();
     }
 
     // TODO: fixed values for now, need to parse data respective to file type
@@ -85,7 +74,6 @@ public class UnrealPackage : IDisposable
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ReadOnlySpan<byte> ReadBytes(int count) => _binaryReader.ReadBytes(count);
-
 
     /// <summary>
     /// Peeks the next bytes in the stream and returns them
@@ -144,39 +132,27 @@ public class UnrealPackage : IDisposable
     internal byte DeserializeByte() => _binaryReader.ReadByte();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal string DeserializeString()
-    {
-        if (DeserializeInt() == 0)
-            return "";
-        DeserializeInt();
-        return ReadString();
-    }
-
+    internal string DeserializeString() => ReadString();
+    
     /// <summary>
-    /// Deserializes a UPK's contents
+    /// Deserializes a UPK's contents.
     /// </summary>
-    /// <returns>Returns UPK FProperty contents via a dictionary</returns>
+    /// <returns>Returns UPK FProperty contents via a dictionary.</returns>
     internal Dictionary<string, FProperties.FProperty> DeserializeUPK()
     {
         var serializerInstance = new FProperties();
         DeserializePackageInfo();
-        var returnData = serializerInstance.Deserialize(this);
-
-        Console.WriteLine("UPK Deserialized.");
-        return returnData;
+        return serializerInstance.Deserialize(this);
     }
 
     private void DeserializePackageInfo() => _packageData.EncryptedInitialBytes = _binaryReader.ReadBytes(8);
 
-    /// <summary>
-    /// Gets all array metadata respective to the UPK's file type
-    /// </summary>
-    /// <returns></returns>
+    /// <returns>all array metadata respective to the UPK's file type.</returns>
     internal List<ArrayMetadata> RequestArrayInfo() => FArrayInitializer.FetchArrayInfo(this);  // get array data   
 
     /// <summary>
-    /// Retrieves the names of all arrays in the UPK
-    /// This is unfinished and not really needed atm
+    /// Retrieves the names of all non-subset arrays in the UPK instance file.
+    /// This is unfinished and will be updated in the future to support subset arrays, allowing for easy IB1,2, VOTE implementation.
     /// </summary>
     /// <returns></returns>
     public List<string> ReturnSerializedArrayNames()

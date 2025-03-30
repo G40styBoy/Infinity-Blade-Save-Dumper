@@ -75,20 +75,21 @@ public class UnrealPackage : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ReadOnlySpan<byte> ReadBytes(int count) => _binaryReader.ReadBytes(count);
 
-    /// <summary>
-    /// Peeks the next bytes in the stream and returns them
-    /// </summary>
+    /// <returns>the next string in the stream</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private byte[] PeekBytes(int count)
+    internal string PeekString()
     {
+        string str;
         long originalPosition = _binaryReader.BaseStream.Position;
 
         try{
-            return _binaryReader.ReadBytes(count);
+            str = ReadString();
         }
         finally{
             _binaryReader.BaseStream.Position = originalPosition;
         }
+
+        return str;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -145,10 +146,15 @@ public class UnrealPackage : IDisposable
         return serializerInstance.Deserialize(this);
     }
 
+    /// <summary>
+    /// Stores the UPK header data.
+    /// </summary>
     private void DeserializePackageInfo() => _packageData.EncryptedInitialBytes = _binaryReader.ReadBytes(8);
 
     /// <returns>all array metadata respective to the UPK's file type.</returns>
     internal List<ArrayMetadata> RequestArrayInfo() => FArrayInitializer.FetchArrayInfo(this);  // get array data   
+
+    internal bool IsEndFile() => _fileStream.Position >= _fileStream.Length;
 
     /// <summary>
     /// Retrieves the names of all non-subset arrays in the UPK instance file.

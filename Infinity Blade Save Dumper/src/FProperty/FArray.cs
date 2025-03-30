@@ -40,7 +40,7 @@ public enum ArrayName
     // IB3 //
         // Static Arrays
         Currency,
-        PlayerStats,
+        Stats,
         NumConsumable,
         ShowConsumableBadge,
         GemCooker,
@@ -138,7 +138,7 @@ public class FArrayInitializer
                 {
                     // Static Arrays
                     new ArrayMetadata(ArrayName.Currency, AlternateName.CurrencyStruct, ValueType.StructProperty, ArrayType.Static),
-                    new ArrayMetadata(ArrayName.PlayerStats, AlternateName.PlayerSavedStats, ValueType.StructProperty, ArrayType.Static),
+                    new ArrayMetadata(ArrayName.Stats, AlternateName.PlayerSavedStats, ValueType.StructProperty, ArrayType.Static),
                     new ArrayMetadata(ArrayName.NumConsumable, AlternateName.NumConsumable, ValueType.IntProperty, ArrayType.Static),
                     new ArrayMetadata(ArrayName.ShowConsumableBadge, AlternateName.ShowConsumableBadge, ValueType.ByteProperty, ArrayType.Static),
                     new ArrayMetadata(ArrayName.GemCooker, AlternateName.GemCookerData, ValueType.StructProperty, ArrayType.Static),

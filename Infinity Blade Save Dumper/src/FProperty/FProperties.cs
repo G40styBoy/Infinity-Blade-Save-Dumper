@@ -17,49 +17,7 @@ class FProperties
     /// </summary>
     private List<ArrayMetadata> gameArrayInfo = new(); 
 
-    /// <summary>
-    /// Adds a FProperty to the _properties collection.
-    /// </summary>
-    private void AddTag(FProperty tag)
-    {
-        if (tag == null){
-            Console.WriteLine($"Property is null, skipping.");
-            return;
-        }
-
-        if (_properties.ContainsKey(tag.Name))
-            _properties.Add(tag.Name + "_" + tag.ArrayIndex, tag);
-        else
-            _properties.Add(tag.Name, tag);    
-    }
-
-    /// <summary>
-    /// Retrieves the array tag for the specified array name.
-    /// </summary>
-    /// <param name="name"></param>
-    /// <returns>data for the array based on the ArrayTag name.</returns>
-    private ArrayMetadata? GetCurrentArray(string name)
-    {
-        var arrayName = (ArrayName)Enum.Parse(typeof(ArrayName), name);
-        var info = gameArrayInfo.FirstOrDefault(array => array.ArrayName == arrayName);
-
-        if (info == default)
-            return null;
-
-        return info;
-    }
-
-
-    /// <summary>
-    /// Checks if the FProperty is empty.
-    /// </summary>
-    /// <param name="tag"></param>
-    /// <returns>a bool declaring whether or not the FProperty is empty.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool IsTagEmpty(FProperty tag) => tag is null || tag.Name == FType.NONE;
-
-
-    /// <summary>
+        /// <summary>
     /// metadata for a Deserialized property.
     /// </summary>
     public class FProperty
@@ -68,7 +26,7 @@ class FProperties
         public string Type { get; set; }
         public int Size { get; set; }
         public int ArrayIndex { get; set; }
-        public object Value { get; set; } // For primitive types, arrays, or structs
+        public object Value { get; set; } 
     
         public FProperty()
         {
@@ -90,7 +48,7 @@ class FProperties
 
         public StructTag(UnrealPackage UPK, bool isTagEmpty)
         {
-            StructProperties = new List<FProperty>(); // Ensures initialization
+            StructProperties = new List<FProperty>(); 
             StructType = isTagEmpty ? string.Empty : UPK.ReadString();
         }
     }
@@ -104,13 +62,57 @@ class FProperties
         public int ArrayEntryCount { get; set; }
         public ArrayMetadata ArrayInfo { get; set; }
 
-        // null reference fix in the future
         public ArrayTag(UnrealPackage UPK, ArrayMetadata arrayInfo)
         {
             ArrayEntries = new List<object>();
             ArrayEntryCount = UPK.DeserializeInt();
             ArrayInfo = arrayInfo;
         }
+        public ArrayTag(ArrayMetadata arrayInfo)
+        {
+            ArrayEntries = new List<object>();
+            ArrayEntryCount = 0;
+            ArrayInfo = arrayInfo;
+        }
+    }
+
+    /// <returns>whether or not a tag is empty.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsTagEmpty(FProperty tag) => tag is null || tag.Name == FType.NONE;
+
+    /// <summary>
+    /// Adds a FProperty to the _properties collection.
+    /// </summary>
+    private void AddTag(FProperty tag, bool isEnd)
+    {
+        if (IsTagEmpty(tag) && isEnd)
+            return;
+        if (IsTagEmpty(tag))
+        {
+            Console.WriteLine("ERROR: Tag is null.");
+            return;
+        }
+        
+        if (_properties.ContainsKey(tag.Name))
+            _properties.Add(tag.Name + "_" + tag.ArrayIndex, tag);
+        else
+            _properties.Add(tag.Name, tag);    
+    }
+
+    /// <summary>
+    /// Retrieves the array tag for the specified array name.
+    /// </summary>
+    /// <param name="name"></param>
+    /// <returns>data for the array based on the ArrayTag name.</returns>
+    private ArrayMetadata? GetCurrentArray(string name)
+    {
+        var arrayName = (ArrayName)Enum.Parse(typeof(ArrayName), name);
+        var info = gameArrayInfo.FirstOrDefault(array => array.ArrayName == arrayName);
+
+        if (info == default)
+            return null;
+
+        return info;
     }
 
     /// <summary>
@@ -148,12 +150,29 @@ class FProperties
         tag.Name = UPK.ReadString();
         if (IsTagEmpty(tag)) 
             return null!;  
-
+            
         tag.Type = UPK.ReadString();
         tag.Size = UPK.DeserializeInt();
         tag.ArrayIndex = UPK.DeserializeInt();
 
         return tag;
+    }
+
+    /// <summary>
+    /// deserializes infinite tags and adds them to a generic collection until a criteria is met.
+    /// </summary>
+    /// <param name="UPK"></param>
+    /// <param name="addToCollection"></param>
+    /// <returns>if it was successful</returns>
+    private bool ProcessNextTag(UnrealPackage UPK, Action<FProperty> addToCollection)
+    {
+        var propertytag = ReadTagData(UPK);
+        if (IsTagEmpty(propertytag))
+            return false;
+
+        propertytag.Value = DeserializePropertyTag(UPK, propertytag);
+        addToCollection(propertytag); // Use the delegate to add
+        return true;
     }
 
     /// <summary>
@@ -166,18 +185,8 @@ class FProperties
     {   
         var structTag = new StructTag(UPK, IsTagEmpty(tag));
 
-        while (true)
-        {
-            var propertytag = ReadTagData(UPK);
+        while (ProcessNextTag(UPK, addToCollection => structTag.StructProperties.Add(addToCollection))){}
 
-            if (propertytag == null)
-                break;
-
-            propertytag.Value = DeserializePropertyTag(UPK, propertytag);
-
-            // Add the property to the struct
-            structTag.StructProperties.Add(propertytag);
-        }
         return structTag;
     }
 
@@ -189,8 +198,7 @@ class FProperties
     /// <returns>data to be parsed into a FProperty's value.</returns>
     private ArrayTag DeserializeArrayTag(UnrealPackage UPK, FProperty tag)  
     {
-        // a case where GetCurrentArray returns null will never happen, but account for it 
-        var arrayTag = new ArrayTag(UPK, GetCurrentArray(tag.Name)!);        
+        var arrayTag = new ArrayTag(UPK, GetCurrentArray(tag.Name) ?? throw new Exception($"ERROR: Array info for {tag.Name} could not be found."));        
         var arrayInfo = arrayTag.ArrayInfo;
         if (arrayInfo == null)
         {
@@ -240,26 +248,60 @@ class FProperties
         }
     }
 
-    // TODO: Add support for static arrays
-    private void StaticHandler(UnrealPackage UPK, ArrayMetadata arrayData, ArrayTag tag)
+    /// <summary>
+    /// Deserializes static arrays, completely transforming the tag passed into the function into an array.
+    /// </summary>
+    /// <param name="UPK"></param>
+    /// <param name="tag"></param>
+    /// <returns>transformed tag.</returns>
+    private FProperty StaticHandler(UnrealPackage UPK, ref FProperty tag)
     {
+        var arrayTag = new ArrayTag(GetCurrentArray(tag.Name) ?? throw new Exception($"ERROR: Array info for {tag.Name} could not be found."));  
+        arrayTag.ArrayEntries.Add(tag); // dont forget to add the first entry
 
+        tag.Type = FType.ARRAY_PROPERTY;
+        tag.ArrayIndex = 0;
+        tag.Value = arrayTag;
+
+        while (UPK.PeekString() == tag.Name) {
+            ProcessNextTag(UPK, addToCollection => arrayTag.ArrayEntries.Add(addToCollection));
+        }
+
+        tag.Size = arrayTag.ArrayEntries.Count;
+        arrayTag.ArrayEntryCount = arrayTag.ArrayEntries.Count;
+        return tag;
     }
     
+    /// <summary>
+    /// Contructs a complete tag.
+    /// </summary>
+    /// <param name="UPK"></param>
+    /// <returns>constructed tag.</returns>
+    private FProperty ConstructTag(UnrealPackage UPK)
+    {
+        FProperty tag = ReadTagData(UPK);
+
+        // Account for "None" property
+        if (IsTagEmpty(tag)) 
+            return null!;
+
+        tag.Value = DeserializePropertyTag(UPK, tag);
+
+        // since we know what the full property type is at this point, it will be easier for us
+        // to properly deserialize the static array
+        if (tag.Type is not FType.ARRAY_PROPERTY && Enum.IsDefined(typeof(ArrayName), tag.Name))
+            StaticHandler(UPK, ref tag);
+        
+        return tag;
+    }
+
     internal Dictionary<string, FProperty> Deserialize(UnrealPackage UPK)
     {
         gameArrayInfo = UPK.RequestArrayInfo();
-        FProperty tag;
-        while (UPK.GetStreamPosition() < UPK.GetStreamLength())  // in the future, we could just check for the "None" property to be pulled
+        while (!UPK.IsEndFile())  // in the future, we could just check for the "None" property to be pulled
         {
-            tag = ReadTagData(UPK);
-            if (tag == null) // Account for "None" property
-                break;       
-
-            tag.Value = DeserializePropertyTag(UPK, tag);
-
-            // Add(tag);
-            AddTag(tag);
+            var tag = ConstructTag(UPK);
+            AddTag(tag, UPK.IsEndFile());
         }
 
         return _properties;

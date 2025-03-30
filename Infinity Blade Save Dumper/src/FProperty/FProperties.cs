@@ -7,11 +7,18 @@ namespace SaveDumper.FPropertyManager;
 
 class FProperties
 {
-    private readonly Dictionary<string, FProperty> _properties = new();  // this is what we are storing all of our data in
-    private List<ArrayMetadata> gameArrayInfo = new(); // This is the array metadata for the current game version 
+    /// <summary>
+    /// this is what we are storing all of our data in.
+    /// </summary>
+    private readonly Dictionary<string, FProperty> _properties = new();  
 
     /// <summary>
-    /// Adds a property to the collection.
+    /// This is the array metadata for the current game version.
+    /// </summary>
+    private List<ArrayMetadata> gameArrayInfo = new(); 
+
+    /// <summary>
+    /// Adds a FProperty to the _properties collection.
     /// </summary>
     private void AddTag(FProperty tag)
     {
@@ -30,7 +37,7 @@ class FProperties
     /// Retrieves the array tag for the specified array name.
     /// </summary>
     /// <param name="name"></param>
-    /// <returns></returns>
+    /// <returns>data for the array based on the ArrayTag name.</returns>
     private ArrayMetadata? GetCurrentArray(string name)
     {
         var arrayName = (ArrayName)Enum.Parse(typeof(ArrayName), name);
@@ -42,19 +49,40 @@ class FProperties
         return info;
     }
 
+
+    /// <summary>
+    /// Checks if the FProperty is empty.
+    /// </summary>
+    /// <param name="tag"></param>
+    /// <returns>a bool declaring whether or not the FProperty is empty.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool IsTagEmpty(FProperty tag) => tag is null || tag.Name == FType.NONE;
 
-    #pragma warning disable CS8618  // this warning is a pain in the ass, and i dont feel like dirtying up the code to fix it
-    public record FProperty
+
+    /// <summary>
+    /// metadata for a Deserialized property.
+    /// </summary>
+    public class FProperty
     {
         public string Name { get; set; }
         public string Type { get; set; }
         public int Size { get; set; }
         public int ArrayIndex { get; set; }
         public object Value { get; set; } // For primitive types, arrays, or structs
+    
+        public FProperty()
+        {
+            Name = string.Empty;
+            Type = string.Empty;
+            Size = 0;
+            ArrayIndex = 0;
+            Value = null!;
+        }
     }
 
+    /// <summary>
+    /// metadata for a Deserialized struct.
+    /// </summary>
     public class StructTag
     {
         public List<FProperty> StructProperties { get; set; }
@@ -67,6 +95,9 @@ class FProperties
         }
     }
 
+    /// <summary>
+    /// metadata for a Deserialized array.
+    /// </summary>
     public class ArrayTag
     {
         public List<object> ArrayEntries { get; set; }
@@ -81,9 +112,15 @@ class FProperties
             ArrayInfo = arrayInfo;
         }
     }
-    #pragma warning restore
 
-    private object DeserializePropertyValue(UnrealPackage UPK, FProperty tag)
+    /// <summary>
+    /// Deserializes a FProperty's value depending on its type.
+    /// </summary>
+    /// <param name="UPK"></param>
+    /// <param name="tag"></param>
+    /// <returns>the value of the FProperty.</returns>
+    /// <exception cref="NotSupportedException"></exception>
+    private object DeserializePropertyTag(UnrealPackage UPK, FProperty tag)
     {
         return tag.Type switch
         {
@@ -99,6 +136,11 @@ class FProperties
         };
     }
 
+    /// <summary>
+    /// Deserializes the main metadata for a tag.
+    /// </summary>
+    /// <param name="UPK"></param>
+    /// <returns>data to be parsed into a new FProperty instance.</returns>
     private FProperty ReadTagData(UnrealPackage UPK)
     {
         var tag = new FProperty();
@@ -114,6 +156,12 @@ class FProperties
         return tag;
     }
 
+    /// <summary>
+    /// Deserializes the main metadata for a struct.
+    /// </summary>
+    /// <param name="UPK"></param>
+    /// <param name="tag"></param>
+    /// <returns>data to be parsed into a FProperty's value.</returns>
     private StructTag DeserializeStructTag(UnrealPackage UPK, FProperty tag)
     {   
         var structTag = new StructTag(UPK, IsTagEmpty(tag));
@@ -125,7 +173,7 @@ class FProperties
             if (propertytag == null)
                 break;
 
-            propertytag.Value = DeserializePropertyValue(UPK, propertytag);
+            propertytag.Value = DeserializePropertyTag(UPK, propertytag);
 
             // Add the property to the struct
             structTag.StructProperties.Add(propertytag);
@@ -133,12 +181,16 @@ class FProperties
         return structTag;
     }
 
-
-    // FIXME: Recursion issues when it comes to static arrays.
+    /// <summary>
+    /// Deserializes the main metadata for an array.
+    /// </summary>
+    /// <param name="UPK"></param>
+    /// <param name="tag"></param>
+    /// <returns>data to be parsed into a FProperty's value.</returns>
     private ArrayTag DeserializeArrayTag(UnrealPackage UPK, FProperty tag)  
     {
         // a case where GetCurrentArray returns null will never happen, but account for it 
-        var arrayTag = new ArrayTag(UPK, GetCurrentArray(tag.Name) ?? throw new ArgumentNullException(nameof(tag.Name)));        
+        var arrayTag = new ArrayTag(UPK, GetCurrentArray(tag.Name)!);        
         var arrayInfo = arrayTag.ArrayInfo;
         if (arrayInfo == null)
         {
@@ -160,6 +212,12 @@ class FProperties
         return arrayTag;
     }
 
+    /// <summary>
+    /// Deserializes a dynamic array depending on its type.
+    /// </summary>
+    /// <param name="UPK"></param>
+    /// <param name="arrayData"></param>
+    /// <param name="tag"></param>
     private void DynamicHandler(UnrealPackage UPK, ArrayMetadata arrayData, ArrayTag tag)
     {
         for (var i = 0; i < tag.ArrayEntryCount; i++)
@@ -170,7 +228,8 @@ class FProperties
                     break;
                 case ValueType.FloatProperty: tag.ArrayEntries.Add(UPK.DeserializeFloat());
                     break;
-                case ValueType.StrProperty: tag.ArrayEntries.Add(UPK.ReadString());
+                case ValueType.NameProperty:
+                case ValueType.StrProperty: tag.ArrayEntries.Add(UPK.DeserializeString());
                     break;
                 case ValueType.StructProperty: tag.ArrayEntries.Add(DeserializeStructTag(UPK, null!));
                     break;
@@ -197,7 +256,7 @@ class FProperties
             if (tag == null) // Account for "None" property
                 break;       
 
-            tag.Value = DeserializePropertyValue(UPK, tag);
+            tag.Value = DeserializePropertyTag(UPK, tag);
 
             // Add(tag);
             AddTag(tag);

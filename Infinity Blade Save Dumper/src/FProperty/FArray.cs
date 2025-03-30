@@ -77,7 +77,14 @@ public enum ArrayName
 
         // Subset Arrays
         SocketedGemData,
-        Gems
+        Gems,
+        Reagents,
+        BossElementalRandList,
+        PersistActorCounts,
+        DontClearPersistActorCounts,
+        SavedItems,
+        Quests,
+        PendingAction
 }
 
 
@@ -167,8 +174,15 @@ public class FArrayInitializer
                     new ArrayMetadata(ArrayName.McpAuthorizedServices, AlternateName.None, ValueType.StrProperty, ArrayType.Dynamic),
 
                     // Subset Arrays
+                    new ArrayMetadata(ArrayName.Gems, AlternateName.None, ValueType.StructProperty, ArrayType.Dynamic),
                     new ArrayMetadata(ArrayName.SocketedGemData, AlternateName.None, ValueType.StructProperty, ArrayType.Dynamic),
-                    new ArrayMetadata(ArrayName.SocketedGemData, AlternateName.None, ValueType.StructProperty, ArrayType.Dynamic)
+                    new ArrayMetadata(ArrayName.Reagents, AlternateName.None, ValueType.StrProperty, ArrayType.Dynamic),
+                    new ArrayMetadata(ArrayName.BossElementalRandList, AlternateName.None, ValueType.FloatProperty, ArrayType.Dynamic),
+                    new ArrayMetadata(ArrayName.PersistActorCounts, AlternateName.None, ValueType.StructProperty, ArrayType.Dynamic),
+                    new ArrayMetadata(ArrayName.DontClearPersistActorCounts, AlternateName.None, ValueType.StructProperty, ArrayType.Dynamic),
+                    new ArrayMetadata(ArrayName.SavedItems, AlternateName.None, ValueType.NameProperty, ArrayType.Dynamic),
+                    new ArrayMetadata(ArrayName.Quests, AlternateName.None, ValueType.StructProperty, ArrayType.Dynamic),
+                    new ArrayMetadata(ArrayName.PendingAction, AlternateName.None, ValueType.StructProperty, ArrayType.Dynamic)
                 });
                 break;
         }

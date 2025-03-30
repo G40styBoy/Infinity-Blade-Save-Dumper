@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-public class G40Util
+public static class G40Util
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int Clamp(int value)

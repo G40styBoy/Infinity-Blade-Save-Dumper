@@ -1,5 +1,5 @@
 ﻿using SaveDumper.UnrealPackageManager;
-using SaveDumper.Globals.FilePaths;
+
 
 namespace SaveDumper;
 
@@ -12,6 +12,6 @@ public class Program
             var properties = UPK.DeserializeUPK();
         } 
 
-        G40Util.Exit();
+        Globals.Exit();
     }
 }     

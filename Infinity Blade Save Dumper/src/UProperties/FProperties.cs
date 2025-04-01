@@ -2,15 +2,13 @@ using SaveDumper.FArrayManager;
 using SaveDumper.UnrealPackageManager;
 using System.Runtime.CompilerServices;
 
-
 namespace SaveDumper.FPropertyManager;
-
 class FProperties
 {
     /// <summary>
     /// this is what we are storing all of our data in.
     /// </summary>
-    private readonly Dictionary<string, FProperty> _properties = new();  
+    private readonly List<FProperty> _properties = new();  
 
     /// <summary>
     /// This is the array metadata for the current game version.
@@ -93,10 +91,7 @@ class FProperties
             return;
         }
         
-        if (_properties.ContainsKey(tag.Name))
-            _properties.Add(tag.Name + "_" + tag.ArrayIndex, tag);
-        else
-            _properties.Add(tag.Name, tag);    
+        _properties.Add(tag);
     }
 
     /// <summary>
@@ -184,9 +179,7 @@ class FProperties
     private StructTag DeserializeStructTag(UnrealPackage UPK, FProperty tag)
     {   
         var structTag = new StructTag(UPK, IsTagEmpty(tag));
-
-        while (ProcessNextTag(UPK, addToCollection => structTag.StructProperties.Add(addToCollection))){}
-
+        while (ProcessNextTag(UPK, structTag.StructProperties.Add)){}
         return structTag;
     }
 
@@ -208,44 +201,26 @@ class FProperties
         if (arrayTag.ArrayEntryCount == 0)
             return null!;   
 
-        switch (arrayInfo.ArrayType)
+        for (var i = 0; i < arrayTag.ArrayEntryCount; i++)
         {
-            case ArrayType.Static:
-            case ArrayType.Dynamic: DynamicHandler(UPK, arrayInfo, arrayTag);
-                break;
-            default:
-                Console.WriteLine($"ERROR: Array type {arrayInfo.ArrayType} is not supported.");
-                break;
-        }
-        return arrayTag;
-    }
-
-    /// <summary>
-    /// Deserializes a dynamic array depending on its type.
-    /// </summary>
-    /// <param name="UPK"></param>
-    /// <param name="arrayData"></param>
-    /// <param name="tag"></param>
-    private void DynamicHandler(UnrealPackage UPK, ArrayMetadata arrayData, ArrayTag tag)
-    {
-        for (var i = 0; i < tag.ArrayEntryCount; i++)
-        {
-            switch (arrayData.ValueType)
+            switch (arrayInfo.ValueType)
             {
-                case ValueType.IntProperty: tag.ArrayEntries.Add(UPK.DeserializeInt());
+                case ValueType.IntProperty: arrayTag.ArrayEntries.Add(UPK.DeserializeInt());
                     break;
-                case ValueType.FloatProperty: tag.ArrayEntries.Add(UPK.DeserializeFloat());
+                case ValueType.FloatProperty: arrayTag.ArrayEntries.Add(UPK.DeserializeFloat());
                     break;
                 case ValueType.NameProperty:
-                case ValueType.StrProperty: tag.ArrayEntries.Add(UPK.DeserializeString());
+                case ValueType.StrProperty: arrayTag.ArrayEntries.Add(UPK.DeserializeString());
                     break;
-                case ValueType.StructProperty: tag.ArrayEntries.Add(DeserializeStructTag(UPK, null!));
+                case ValueType.StructProperty: arrayTag.ArrayEntries.Add(DeserializeStructTag(UPK, null!));
                     break;
                 default:
-                    Console.WriteLine($"ERROR: Array type {arrayData.ValueType} is not supported.");
+                    Console.WriteLine($"ERROR: Array type {arrayInfo.ValueType} is not supported.");
                     break;
             }
         }
+
+        return arrayTag;
     }
 
     /// <summary>
@@ -259,12 +234,13 @@ class FProperties
         var arrayTag = new ArrayTag(GetCurrentArray(tag.Name) ?? throw new Exception($"ERROR: Array info for {tag.Name} could not be found."));  
         arrayTag.ArrayEntries.Add(tag); // dont forget to add the first entry
 
+        // overwrite the tag to fit the new type
         tag.Type = FType.ARRAY_PROPERTY;
         tag.ArrayIndex = 0;
         tag.Value = arrayTag;
 
         while (UPK.PeekString() == tag.Name) {
-            ProcessNextTag(UPK, addToCollection => arrayTag.ArrayEntries.Add(addToCollection));
+            ProcessNextTag(UPK, arrayTag.ArrayEntries.Add);
         }
 
         tag.Size = arrayTag.ArrayEntries.Count;
@@ -295,10 +271,10 @@ class FProperties
         return tag;
     }
 
-    internal Dictionary<string, FProperty> Deserialize(UnrealPackage UPK)
+    internal List<FProperty> Deserialize(UnrealPackage UPK)
     {
         gameArrayInfo = UPK.RequestArrayInfo();
-        while (!UPK.IsEndFile())  // in the future, we could just check for the "None" property to be pulled
+        while (!UPK.IsEndFile()) 
         {
             var tag = ConstructTag(UPK);
             AddTag(tag, UPK.IsEndFile());

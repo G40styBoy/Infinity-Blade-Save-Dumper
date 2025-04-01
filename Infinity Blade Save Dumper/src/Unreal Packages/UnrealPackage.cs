@@ -139,11 +139,15 @@ public class UnrealPackage : IDisposable
     /// Deserializes a UPK's contents.
     /// </summary>
     /// <returns>Returns UPK FProperty contents via a dictionary.</returns>
-    internal Dictionary<string, FProperties.FProperty> DeserializeUPK()
+    internal List<FProperties.FProperty> DeserializeUPK()
     {
+        Globals.PrintColoredLine("Deserializing UPK...", ConsoleColor.Yellow, true);
         var serializerInstance = new FProperties();
         DeserializePackageInfo();
-        return serializerInstance.Deserialize(this);
+        
+        var properties = serializerInstance.Deserialize(this);
+        Globals.PrintColoredLine("UPK Deserialization Successful.", ConsoleColor.Green, true);
+        return properties;
     }
 
     /// <summary>

@@ -1,6 +1,4 @@
 using SaveDumper.UnrealPackageManager;
-
-
 namespace SaveDumper.FArrayManager;
 
 // ██████╗░░█████╗░████████╗░█████╗░
@@ -87,13 +85,12 @@ public enum ArrayName
         PendingAction
 }
 
-
-public class ArrayMetadata
+public record ArrayMetadata
 {
-    public ArrayName ArrayName { get; set; }
-    public AlternateName AlternateName { get; set; }
-    public ValueType ValueType { get; set; }
-    public ArrayType ArrayType { get; set; }
+    public ArrayName ArrayName;
+    public AlternateName AlternateName;
+    public ValueType ValueType;
+    public ArrayType ArrayType;
 
     public ArrayMetadata(ArrayName arrayName, AlternateName alternateName, ValueType valueType, ArrayType type)
     {

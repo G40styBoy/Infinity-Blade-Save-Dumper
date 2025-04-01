@@ -33,12 +33,4 @@ public static class G40Util
         if (value.ToString().Contains(".")) return true;
         return false;
     }
-
-    public static void Exit()
-    {
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.Write("\nPress any key to exit...");
-        Console.ResetColor();  // not needed, but why not :)
-        Console.ReadKey();
-    }
 }

@@ -1,5 +1,33 @@
-public static class IEnums
+using System.Runtime.CompilerServices;
+public static class IBEnums
 {
+    public static string GetEnumEntryFromIndex(string alias, int idx)
+    {
+        switch (alias)
+        {
+            case "NumConsumable":
+                return ((ETouchRewardActor)idx).ToString();
+            case "SavedCheevo":
+                return ((eAchievements)idx).ToString();
+            default:
+                return $"Element_{idx+1}";
+        }
+    }
+
+    /// <summary>
+    /// Associates a string t from the generic enum passed.
+    /// </summary>
+    /// <returns>Index position of the enum value, or -1 if not found</returns>
+    public static int GetArrayIndexFromEnum<T>(string fName) where T : Enum
+    {
+        if (Enum.IsDefined(typeof(T), fName))
+        {
+            var enumNames = Enum.GetNames(typeof(T));
+            return Array.IndexOf(enumNames, fName);
+        }
+        return -1;
+    }
+
     public enum ETouchRewardActor
     {
         TRA_Random,                     // 0
@@ -145,5 +173,6 @@ public static class IEnums
         EPCT_AllValid,                  // 2
         EPCT_MAX                        // 3
     };
-
 }
+
+

@@ -1,14 +1,14 @@
 // using System.Security.Cryptography;
 using System.Text;
 using System.Runtime.CompilerServices;
-using SaveDumper.FPropertyManager;
-using SaveDumper.FArrayManager;
+using SaveDumper.Deserializer;
+using SaveDumper.UArrayData;
 
 namespace SaveDumper.UnrealPackageManager;
 
 public class UnrealPackage : IDisposable
 {
-    private readonly string _filePath;
+    private string _filePath;
     private FileStream _fileStream;
     private BinaryReader _binaryReader;
     private BinaryWriter _binaryWriter;
@@ -23,42 +23,37 @@ public class UnrealPackage : IDisposable
         public PackageType PackageType;
     }
 
-    public UnrealPackage(string filePath)
+    public UnrealPackage(string filePath, PackageType type)
     {
         _filePath = filePath;
         _packageData = new PackageData();
         if (!File.Exists(_filePath))
             throw new FileNotFoundException("The specified file does not exist.", _filePath);
 
-        try
-        {
-            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
-            {
+        try{
+            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite)){
                 // test access
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex){
             throw new InvalidOperationException("File is not accessible for read/write operations.", ex);
         }
-        try
-        {
+        try{
             _fileStream = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
             _binaryReader = new BinaryReader(_fileStream, Encoding.UTF8, leaveOpen: true);
             _binaryWriter = new BinaryWriter(_fileStream, Encoding.UTF8, leaveOpen: true);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex){
             throw new InvalidOperationException("Could not open file stream.", ex);
         }
 
-        GetPackageInfo();
+        GetPackageInfo(type);
     }
 
     // TODO: fixed values for now, need to parse data respective to file type
-    private void GetPackageInfo()
+    private void GetPackageInfo(PackageType type)
     {
-        _packageData.PackageType = PackageType.IB3;
+        _packageData.PackageType = type;
         _packageData.IsEncrypted = false;
     }
     #endregion
@@ -74,7 +69,7 @@ public class UnrealPackage : IDisposable
     // for right now, this function doesnt need to be that extensive
     public void RevertStreamPosition(string value)
     {
-        _fileStream.Position -= 5; // size + nt
+        _fileStream.Position -= sizeof(int) + sizeof(byte); // size + nt
         _fileStream.Position -= value.Length;
     }
 
@@ -88,86 +83,123 @@ public class UnrealPackage : IDisposable
         string str;
         long originalPosition = _binaryReader.BaseStream.Position;
 
-        try
-        {
-            str = ReadString();
+        try{
+            str = DeserializeString();
         }
-        finally
-        {
+        finally{
             _binaryReader.BaseStream.Position = originalPosition;
         }
 
         return str;
     }
 
-    /// <returns>a string extracted from a null terminated string</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal string ReadString()
+    internal string DeserializeString()
     {
-        var strLength = DeserializeInt();
-        if (strLength <= 0)
-            return string.Empty;
-        strLength--;
+        try
+        {
+            var strLength = DeserializeInt();
+            if (strLength <= UPropertyDataHelper.EMPTY)
+                return string.Empty;
+            strLength--;
 
-        var bytes = new byte[strLength];
-        _binaryReader.Read(bytes, 0, strLength);
-        _fileStream.Position++;
-
-        return Encoding.UTF8.GetString(bytes);
+            var bytes = new byte[strLength];
+            _binaryReader.Read(bytes, UPropertyDataHelper.EMPTY, strLength);
+            _fileStream.Position++;   
+            
+            return Encoding.UTF8.GetString(bytes);
+        }
+        catch (Exception exception){
+            throw new InvalidOperationException($"Failure deserializing string inside an Unreal Package. {exception}");
+        }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal object DeserializeByteProperty()
     {
-        string enumName = ReadString();
+        string enumName = DeserializeString();
 
-        if (enumName == FType.NONE)
+        if (enumName == UType.NONE)
             return DeserializeByte();
         else
         {
-            string enumValue = ReadString();
+            string enumValue = DeserializeString();
             return new KeyValuePair<string, string>(enumName, enumValue);
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal int DeserializeInt(bool returnedSigned = false)
     {
-        int readValue = BitConverter.ToInt32(ReadBytes(4));
+        try
+        {
+            int readValue = BitConverter.ToInt32(ReadBytes(sizeof(int)));
 
-        // if signed, clamp to int limit
-        // infinity blade save values that are negative usually indicate they've gone over the limit
-        if (int.IsNegative(readValue) && !returnedSigned)
-            return int.MaxValue;
+            // infinity blade save values that are negative usually indicate they've gone over the limit
+            if (int.IsNegative(readValue) && !returnedSigned && readValue != -1)
+                return int.MaxValue;
 
-        return readValue;
+            return readValue;
+        }
+        catch (ArgumentOutOfRangeException){
+            throw new ArgumentOutOfRangeException($"Could not convert {sizeof(int)} bytes to an integer.");
+        }
+    }
+
+    internal float DeserializeFloat()
+    {
+        try
+        {
+            float floatRead = BitConverter.ToSingle(ReadBytes(sizeof(float)));
+            
+            if (float.IsNaN(floatRead) || float.IsInfinity(floatRead))
+                throw new InvalidDataException($"Invalid float value: {floatRead}");
+                
+            return floatRead;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            throw new ArgumentOutOfRangeException($"Could not convert {sizeof(float)} byte to a float.");
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal float DeserializeFloat() => BitConverter.ToSingle(ReadBytes(4));
-
+    internal bool DeserializeBool()
+    {
+        try{
+            return BitConverter.ToBoolean(ReadBytes(sizeof(bool)));
+        }
+        catch (ArgumentOutOfRangeException){
+            throw new ArgumentOutOfRangeException($"Could not convert {sizeof(bool)} to a bool.");
+        }     
+    }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool DeserializeBool() => BitConverter.ToBoolean(ReadBytes(1));
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal byte DeserializeByte() => _binaryReader.ReadByte();
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal string DeserializeString() => ReadString();
+    internal byte DeserializeByte()
+    {
+        try{
+            return _binaryReader.ReadByte();
+        }
+        catch (Exception){
+            throw new InvalidOperationException($"Could not read byte inside of Unreal Package.");
+        }     
+    }
 
     /// <summary>
     /// Deserializes a UPK's contents.
     /// </summary>
-    /// <returns>Returns UPK FProperty contents via a dictionary.</returns>
-    internal List<FProperties.UProperty> DeserializeUPK()
+    /// <returns>Returns UPK FProperty contents via a list.</returns>
+    public List<UProperty> DeserializeUPK(bool reportDiagnostics = false)
     {
-        Globals.PrintColoredLine("Deserializing UPK...", ConsoleColor.Yellow, true);
-        var serializerInstance = new FProperties();
+        Global.PrintColoredLine("Deserializing UPK...", ConsoleColor.Yellow, true);
+        var serializerInstance = new UPKDeserializer(_packageData.PackageType);
         DeserializePackageInfo();
 
-        var properties = serializerInstance.Deserialize(this);
-        Globals.PrintColoredLine("UPK Deserialization Successful.", ConsoleColor.Green, true);
+        var properties = serializerInstance.DeserializePackage(this);
 
+        if (properties is null)
+        {
+            Global.PrintColoredLine("Deserialization unsuccessful!\n", ConsoleColor.Red, true);
+            return null!;
+        }
+
+        Global.PrintColoredLine("Deserialization successful!\n", ConsoleColor.Green, true);
         return properties;
     }
 
@@ -176,68 +208,8 @@ public class UnrealPackage : IDisposable
     /// </summary>
     private void DeserializePackageInfo() => _packageData.EncryptedInitialBytes = _binaryReader.ReadBytes(8);
 
-    /// <returns>all array metadata respective to the UPK's file type.</returns>
-    internal List<ArrayMetadata> RequestArrayInfo() => FArrayInitializer.PopulateArrayInfo();  // get array data   
-
     /// <returns>A boolean value that indicates whether the stream has reached the end of the file</returns>
     internal bool IsEndFile() => _fileStream.Position >= _fileStream.Length;
-
-    /// <summary>
-    /// Retrieves the names of all non-subset arrays in the UPK instance file.
-    /// This is unfinished and will be updated in the future to support subset arrays, allowing for easy IB1,2, VOTE implementation.
-    /// </summary>
-    /// <returns></returns>
-    public List<string> ReturnAllUPropertyNames()
-    {
-        var names = new List<string>();
-        var seenNames = new HashSet<string>(); // Track seen names to detect duplicates
-
-        DeserializePackageInfo();
-
-        while (!IsEndFile())
-        {
-            string name = ReadString();
-
-            if (name == FType.NONE)
-                break;
-
-            string type = ReadString();
-            int size = DeserializeInt();
-
-            switch (type)
-            {
-                case "ArrayProperty":
-                    _fileStream.Position += 4; // Skip entry count
-                    _fileStream.Position += size; // Skip entry data
-                    break;
-                case "StructProperty":
-                    _fileStream.Position += 4; // Array Index
-                    ReadString();
-                    _fileStream.Position += size; // Skip struct data
-                    break;
-                case "ByteProperty":
-                    _fileStream.Position += 4; // Array Index
-                    ReadString();
-                    _fileStream.Position += size; // Skip struct data
-                    break;
-                case "BoolProperty":
-                    _fileStream.Position += 5; // Array Index
-                    break;
-
-                default:
-                    _fileStream.Position += 4; // Array Index
-                    _fileStream.Position += size; // value contents     
-                    break;
-            }
-
-            if (!seenNames.Contains(name))
-                names.Add(name);
-            seenNames.Add(name);
-        }
-
-        _fileStream.Position = 0; // Reset file position
-        return names;
-    }
 
     //TODO: Handle decryption for IB1 and IB2 packages
     private void DecryptPackage() { }

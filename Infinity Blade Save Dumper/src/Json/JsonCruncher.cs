@@ -17,14 +17,13 @@ class JsonDataCruncher
     private readonly HashSet<string> SpecialEnumNames = new() { "eCurrentPlayerType" };
     private readonly HashSet<string> SpecialIntNames = new() { "bWasEncrypted" };
     private readonly HashSet<string> SpecialStructNames = new() { "SavedCheevo" };
-    private readonly string jsonFile = $@"{FilePaths.OutputDir}\Deserialized Save Data.json";
 
     private JsonTextReader reader;
     private List<UProperty> crunchedList = new List<UProperty>();
     private List<ArrayMetadata> arrayData;
     private UPropertyDataHelper uHelper;
 
-    public JsonDataCruncher(PackageType type)
+    public JsonDataCruncher(string jsonFile, PackageType type)
     {
         FilePaths.ValidateOutputDirectory();
         string jsonFileText = File.ReadAllText(jsonFile);
@@ -347,44 +346,3 @@ class JsonDataCruncher
         tag.size = size;
     }
 }
-
-/*
-    TODO: Deserialize Static Arrays
-
-    we want to split up the array into multiple of the same value, just like the serialized data
-
-    account for edge cases via array names, maybe have a function that ties the logic for that together? dont know
-        literally all the edge cases are is actually calculating the array index of a property...
-        depending on the name, make some sort of function to calculate any edge case's index.
-        If I write a clean and extensible enough function for this, could potentially backport it to the Deserialization code
-
-    the size for each array entry should be calculated seperately. Maybe do a for loop over each entry and make a new property?
-    
-    *use this logic somehow 
-    // private UArrayProperty<UProperty> BuildArrayProperty(UnrealPackage UPK, TagContainer tag)
-    // {
-    //     var elements = new List<UProperty>();
-    //     int loopCount = 0;
-    //     while (true)
-    //     {
-    //         if (loopCount > MAX_STATIC_ARRAY_ELEMENTS)
-    //             throw new Exception("Infinite loop detected while deserializing static array.");
-
-    //         var nextname = UPK.PeekString();
-    //         if (nextname != tag.name)
-    //             break;
-
-    //         elements.Add(ConstructTag(UPK, allowStaticArrayDetection: false));
-    //         tag.arrayEntryCount++;
-    //         loopCount++;
-    //     }
-
-    //     return new UArrayProperty<UProperty>(tag, elements);
-    // }
-
-
-    final notes:
-        i think this will be a cakewalk, but i also want to really focus on making this good code. 
-        after im done, go back and clean up all classes before moving onto actual binary serialization
-        binary serialization will also be extremely easy (maybe a tad time consuming) since this intermediate data will house all necessary info 
-*/

@@ -187,19 +187,14 @@ public class UnrealPackage : IDisposable
     /// <returns>Returns UPK FProperty contents via a list.</returns>
     public List<UProperty> DeserializeUPK(bool reportDiagnostics = false)
     {
-        Global.PrintColoredLine("Deserializing UPK...", ConsoleColor.Yellow, true);
         var serializerInstance = new UPKDeserializer(_packageData.PackageType);
         DeserializePackageInfo();
 
         var properties = serializerInstance.DeserializePackage(this);
 
         if (properties is null)
-        {
-            Global.PrintColoredLine("Deserialization unsuccessful!\n", ConsoleColor.Red, true);
             return null!;
-        }
-
-        Global.PrintColoredLine("Deserialization successful!\n", ConsoleColor.Green, true);
+        
         return properties;
     }
 

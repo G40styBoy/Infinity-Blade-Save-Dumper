@@ -7,7 +7,7 @@ public class Global
     public static void Exit()
     {
         //PrintColored("\nPress any key to exit...", ConsoleColor.Green, false);
-        Console.WriteLine("Press any key to exit...");
+        Console.WriteLine("Press any key to continue...");
         Console.ReadKey();
     }
 
@@ -17,7 +17,6 @@ public class Global
         Console.Write(message);
         if (resetColor)
             Console.ResetColor();
-
     }
 
     // Overload for writing a line (adds newline)

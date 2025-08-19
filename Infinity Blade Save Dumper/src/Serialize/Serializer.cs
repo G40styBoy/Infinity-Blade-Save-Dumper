@@ -36,7 +36,7 @@ class DataSerializer : IDisposable
             // placeholder for now of the package header contents
             binWriter.Write(5);
             binWriter.Write(4294967295);
-            ;
+
             foreach (var uProperty in crunchedData)
             {
                 uhelper.SerializeMetadata(ref binWriter, uProperty);

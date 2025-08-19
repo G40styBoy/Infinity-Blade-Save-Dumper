@@ -1,62 +1,107 @@
-﻿using SaveDumper.UnrealPackageManager;
-using SaveDumper.Deserializer;
-using SaveDumper.JsonParser;
+﻿using SaveDumper.JsonParser;
 using SaveDumper.JsonCruncher;
 using SaveDumper.Serializer;
-
+using SaveDumper.Utilities;
 
 namespace SaveDumper;
 
-public class Program
+internal class Program
 {
-    private static void Exit() => Global.Exit();
-
-    public static void Main()
+    private static string? inputPath;
+    
+    static void Main(string[] args)
     {
-        string save1 = @$"{FilePaths.IB3SAVES}\IB3 Unencrypted Dual Saves\550 Thane\{FilePaths.UNENCRYPTEDSTRING}";
-        string save2 = @$"{FilePaths.IB2SAVES}\{FilePaths.UNENCRYPTEDSTRING}";
-        string save3 = @$"{FilePaths.IB3SAVES}\Bu's Save.bin";
-        string save4 = @$"{FilePaths.IB1SAVES}\SwordSave1.bin";
-        string save5 = @$"{FilePaths.IB1SAVES}\SwordSave.bin";
-        PackageType packageType = PackageType.IB3;
-
-        using (var UPK = new UnrealPackage(save3, packageType))
+        Console.Title = "Infinity Blade Save Dumper Tool v1.0";
+        while (true)
         {
-
-            Console.Write("Do you want to deserialize or serialize? [d/s]: ");
-            string choice = Console.ReadLine()?.Trim().ToLower()!;
-
-            if (choice is "s")
-                RunSerialization(packageType);
-            else if (choice is "d")
-                RunDeserialization(UPK);
+            Console.Clear();
+            PrintBanner();
+            if (args.Length == 0)
+            {
+                Console.WriteLine("Drag and drop a .json or .bin file here, then press Enter:");
+                inputPath = Console.ReadLine()?.Trim('"')!;
+                if (string.IsNullOrWhiteSpace(inputPath) || !File.Exists(inputPath))
+                {
+                    Console.WriteLine("Invalid file provided.");
+                    WaitAndRestart();
+                    continue;
+                }
+                
+                Console.Clear();
+                PrintBanner();
+                Console.WriteLine("Processing file...\n");
+            }
             else
-                Console.WriteLine("Invalid choice. Please enter 'd' or 's'.");
+            {
+                inputPath = args[0];
+                args = Array.Empty<string>(); 
+            }
+            
+            string extension = Path.GetExtension(inputPath).ToLowerInvariant();
+            try
+            {
+                switch (extension)
+                {
+                    case ".json":
+                        Console.WriteLine("Running Serialization...");
+                        RunSerialization(PackageType.IB3);
+                        break;
+                    case ".bin":
+                        Console.WriteLine("Running Deserialization...");
+                        var upk = new UnrealPackage(inputPath, PackageType.IB3);
+                        RunDeserialization(upk);
+                        break;
+                    default:
+                        Console.WriteLine("Unsupported file type. Only .json or .bin are allowed.");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("An error occurred:");
+                Console.WriteLine(ex.Message);
+            }
+            WaitAndRestart();
         }
-        Exit();
     }
-
+    
+    private static void PrintBanner()
+    {
+        Global.PrintColoredLine("========================================", ConsoleColor.Cyan, true);
+        Global.PrintColoredLine("       SAVE DUMPER TOOL v1.0", ConsoleColor.Cyan, true);
+        Global.PrintColoredLine("========================================", ConsoleColor.Cyan, true);
+        Global.PrintColoredLine(" © 2025 G40sty. All rights reserved.\n", ConsoleColor.DarkGray, true);
+    }
+    
+    private static void WaitAndRestart()
+    {
+        Console.WriteLine("\nPress any key to continue...");
+        Console.ReadKey(true);
+        Console.Clear(); 
+    }
+    
     static void RunSerialization(PackageType packageType)
     {
-        var cruncher = new JsonDataCruncher(packageType);
-        var crunchedData = cruncher.ReadJsonFile();
-        if (crunchedData is null)
-            return;
-
-        using (var serializer = new DataSerializer(crunchedData))
-            serializer.SerializeAndOutputData();
+        ProgressBar.Run("Serializing", () =>
+        {
+            var cruncher = new JsonDataCruncher(inputPath!, packageType);
+            var crunchedData = cruncher.ReadJsonFile();
+            if (crunchedData is null)
+                return;
+            using (var serializer = new DataSerializer(crunchedData))
+                serializer.SerializeAndOutputData();
+        });
     }
-
+    
     static void RunDeserialization(UnrealPackage UPK)
     {
-        List<UProperty> uProperties;
-
-        uProperties = UPK.DeserializeUPK(true);
-        if (uProperties is null)
-            return;
-
-        var JsonDataParser = new JsonDataParser(uProperties!);
-        JsonDataParser.WriteDataToFile();
+        ProgressBar.Run("Deserializing", () =>
+        {
+            List<UProperty> uProperties = UPK.DeserializeUPK(true);
+            if (uProperties is null)
+                return;
+            var JsonDataParser = new JsonDataParser(uProperties!);
+            JsonDataParser.WriteDataToFile();
+        });
     }
-}     
-
+}

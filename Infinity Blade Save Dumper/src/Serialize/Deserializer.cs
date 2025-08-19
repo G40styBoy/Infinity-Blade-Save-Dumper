@@ -67,7 +67,8 @@ public class UPKDeserializer
             }
             return ConstructUProperty(UPK, tag);
         }
-        catch (Exception){ return null!; }
+        catch (Exception)
+            { return null!; }
     }
 
     /// <summary>

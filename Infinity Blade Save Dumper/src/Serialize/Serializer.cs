@@ -9,7 +9,8 @@ namespace SaveDumper.Serializer;
 /// </summary>
 class DataSerializer : IDisposable
 {
-    private const string DEFAULT_NAME = "UnencryptedSave0.bin";
+    private const string DEFAULT_NAME = "UnencryptedSave0";
+    private const string EXTENSION = ".bin";
     private const string CUSTOM_NAME = "Serialized Save Data.bin";
 
     private readonly List<UProperty> crunchedData;
@@ -21,7 +22,7 @@ class DataSerializer : IDisposable
         this.crunchedData = crunchedData;
         uhelper = new UPropertyDataHelper();
 
-        string outputPath = Path.Combine(FilePaths.OutputDir, DEFAULT_NAME);
+        string outputPath = Path.Combine(FilePaths.OutputDir, Util.GetNextSaveFileNameForOuput(DEFAULT_NAME, EXTENSION));
 
         // setup stream + writer here
         FileStream fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write);

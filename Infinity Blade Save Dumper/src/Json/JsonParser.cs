@@ -44,7 +44,6 @@ public class JsonDataParser : IDisposable
                 }
             }
             writer.WriteEndObject();
-            writer.Flush();
             return true;
         }
         catch (Exception ex)

@@ -8,10 +8,17 @@ namespace SaveDumper;
 internal class Program
 {
     private static string? inputPath;
-    
-    static void Main(string[] args)
+    private static bool debug = false;
+
+    public static void Main(string[] args)
     {
-        Console.Title = "Infinity Blade Save Dumper Tool v1.0";
+        if (debug)
+        {
+            DebugMain();
+            return;
+        }
+
+        Console.Title = "Infinity Blade Save Dumper Tool v0.1";
         while (true)
         {
             Console.Clear();
@@ -26,7 +33,7 @@ internal class Program
                     WaitAndRestart();
                     continue;
                 }
-                
+
                 Console.Clear();
                 PrintBanner();
                 Console.WriteLine("Processing file...\n");
@@ -34,11 +41,11 @@ internal class Program
             else
             {
                 inputPath = args[0];
-                args = Array.Empty<string>(); 
+                args = Array.Empty<string>();
             }
-            
-            string extension = Path.GetExtension(inputPath).ToLowerInvariant();
 
+            string extension = Path.GetExtension(inputPath).ToLowerInvariant();
+            FilePaths.ValidateOutputDirectory();
 
             try
             {
@@ -66,44 +73,48 @@ internal class Program
             WaitAndRestart();
         }
     }
-    
+
     private static void PrintBanner()
     {
         Global.PrintColoredLine("========================================", ConsoleColor.Cyan, true);
-        Global.PrintColoredLine("       SAVE DUMPER TOOL v1.0", ConsoleColor.Cyan, true);
+        Global.PrintColoredLine("       SAVE DUMPER TOOL v0.1", ConsoleColor.Cyan, true);
         Global.PrintColoredLine("========================================", ConsoleColor.Cyan, true);
         Global.PrintColoredLine(" © 2025 G40sty. All rights reserved.\n", ConsoleColor.DarkGray, true);
     }
-    
+
     private static void WaitAndRestart()
     {
         Console.WriteLine("\nPress any key to continue...");
         Console.ReadKey(true);
-        Console.Clear(); 
+        Console.Clear();
     }
-    
-    static void RunSerialization(PackageType packageType)
+
+    private static void RunSerialization(PackageType packageType)
     {
         ProgressBar.Run("Serializing", () =>
-        {
-            var cruncher = new JsonDataCruncher(inputPath!, packageType);
-            var crunchedData = cruncher.ReadJsonFile();
-            if (crunchedData is null)
-                return;
-            using (var serializer = new DataSerializer(crunchedData))
-                serializer.SerializeAndOutputData();
-        });
+            {
+                var cruncher = new JsonDataCruncher(inputPath!, packageType);
+                var crunchedData = cruncher.ReadJsonFile();
+                if (crunchedData is null)
+                    return;
+                using (var serializer = new DataSerializer(crunchedData))
+                    serializer.SerializeAndOutputData();
+            });
     }
-    
-    static void RunDeserialization(UnrealPackage UPK)
+
+    private static void RunDeserialization(UnrealPackage UPK)
     {
         ProgressBar.Run("Deserializing", () =>
         {
             List<UProperty> uProperties = UPK.DeserializeUPK(true);
             if (uProperties is null)
                 return;
-            var JsonDataParser = new JsonDataParser(uProperties!);
-            JsonDataParser.WriteDataToFile();
+            using(var JsonDataParser = new JsonDataParser(uProperties!))
+                JsonDataParser.WriteDataToFile();
         });
+    }
+
+    private static void DebugMain()
+    {
     }
 }

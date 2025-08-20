@@ -1,6 +1,5 @@
-using System.Text;
 using System.Diagnostics;
-
+using SaveDumper.Utilities;
 
 namespace SaveDumper.Serializer;
 
@@ -15,27 +14,30 @@ class DataSerializer : IDisposable
 
     private readonly List<UProperty> crunchedData;
     private BinaryWriter binWriter;
-    private UPropertyDataHelper uhelper;
-
+    private readonly UPropertyDataHelper uhelper;
 
     public DataSerializer(List<UProperty> crunchedData)
     {
         this.crunchedData = crunchedData;
+        uhelper = new UPropertyDataHelper();
 
         string outputPath = Path.Combine(FilePaths.OutputDir, DEFAULT_NAME);
+
+        // setup stream + writer here
         FileStream fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
         binWriter = new BinaryWriter(fs);
-
-        uhelper = new UPropertyDataHelper();
     }
 
     internal bool SerializeAndOutputData()
     {
+        int saveType = 5;
+        uint saveMagic = 4294967295;
         try
         {
             // placeholder for now of the package header contents
-            binWriter.Write(5);
-            binWriter.Write(4294967295);
+            // this will not support unencrypted
+            binWriter.Write(saveType);
+            binWriter.Write(saveMagic);
 
             foreach (var uProperty in crunchedData)
             {
@@ -43,6 +45,7 @@ class DataSerializer : IDisposable
                 uProperty.SerializeValue(binWriter);
             }
 
+            binWriter.Flush(); // make sure all data is written out
             return true;
         }
         catch (Exception ex)

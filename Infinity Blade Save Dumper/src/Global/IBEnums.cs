@@ -1,5 +1,7 @@
-using System.Runtime.CompilerServices;
-public static class IBEnums
+/// <summary>
+/// Class designed to aid in dealing with Infinity Blade Enums
+/// </summary>
+public static class IBEnum
 {
     public static string GetEnumEntryFromIndex(string alias, int idx)
     {
@@ -10,7 +12,7 @@ public static class IBEnums
             case "SavedCheevo":
                 return ((eAchievements)idx).ToString();
             default:
-                return $"Element_{idx+1}";
+                return $"Element_{idx + 1}";
         }
     }
 

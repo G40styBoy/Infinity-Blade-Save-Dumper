@@ -1,5 +1,8 @@
 namespace SaveDumper.Utilities;
 
+/// <summary>
+/// utility class for the tool's GUI to make the interface cleaner
+/// </summary>
 public static class ProgressBar
 {
     public static void Run(string label, Action work)
@@ -29,8 +32,9 @@ public static class ProgressBar
 
         progressThread.Start();
 
-        try{
-            work(); 
+        try
+        {
+            work();
         }
         catch (Exception ex)
         {
@@ -60,4 +64,28 @@ public static class ProgressBar
             Console.CursorVisible = true;
         }
     }
+}
+
+/// <summary>
+/// Helps keep file locations, names, etc. organized.
+/// All file path data needed for the program is stored here
+/// </summary>
+public static class FilePaths
+{
+    public static DirectoryInfo parentDirectory = Directory.GetParent(Directory.GetCurrentDirectory())!;
+    public static string OutputDir = $@"{parentDirectory}\OUTPUT";
+
+    public static string baseLocation = $@"{parentDirectory}\SAVE STORAGE LOCATION";
+    public static string IB3SAVES = Path.Combine(baseLocation, @"IB3 Backup");
+    public static string IB2SAVES = Path.Combine(baseLocation, @"IB2 Backup");
+    public static string IB1SAVES = Path.Combine(baseLocation, @"IB1 Backup");
+    public static string VOTESAVES = Path.Combine(baseLocation, @"VOTE!!! Backup");
+
+    public static void ValidateOutputDirectory()
+    {
+        if (!File.Exists(OutputDir))
+            Directory.CreateDirectory(OutputDir);
+    }
+
+    public static bool DoesOutputExist() => File.Exists(OutputDir);
 }

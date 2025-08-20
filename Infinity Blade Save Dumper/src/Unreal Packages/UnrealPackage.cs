@@ -2,7 +2,6 @@
 using System.Text;
 using System.Runtime.CompilerServices;
 using SaveDumper.Deserializer;
-using SaveDumper.UArrayData;
 
 namespace SaveDumper.UnrealPackageManager;
 
@@ -30,20 +29,23 @@ public class UnrealPackage : IDisposable
         if (!File.Exists(_filePath))
             throw new FileNotFoundException("The specified file does not exist.", _filePath);
 
-        try{
-            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite)){
-                // test access
-            }
+        try
+        {
+            // test access
+            using (var fs = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite)) { }
         }
-        catch (Exception ex){
+        catch (Exception ex)
+        {
             throw new InvalidOperationException("File is not accessible for read/write operations.", ex);
         }
-        try{
+        try
+        {
             _fileStream = new FileStream(_filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
             _binaryReader = new BinaryReader(_fileStream, Encoding.UTF8, leaveOpen: true);
             _binaryWriter = new BinaryWriter(_fileStream, Encoding.UTF8, leaveOpen: true);
         }
-        catch (Exception ex){
+        catch (Exception ex)
+        {
             throw new InvalidOperationException("Could not open file stream.", ex);
         }
 
@@ -65,10 +67,12 @@ public class UnrealPackage : IDisposable
     public void SetStreamPosition(long position) => _fileStream.Position = position;
     public long GetStreamLength() => _fileStream.Length;
 
-    // TODO: if need be, revert an specific amount back based on value type
-    // for right now, this function doesnt need to be that extensive
+    /// <summary>
+    /// Reverts the stream position during deserialization given a value and its type
+    /// </summary>
     public void RevertStreamPosition(string value)
     {
+        // Right now this only supports strings, but for now we don't need to revert any other type
         _fileStream.Position -= sizeof(int) + sizeof(byte); // size + nt
         _fileStream.Position -= value.Length;
     }
@@ -77,16 +81,17 @@ public class UnrealPackage : IDisposable
     private ReadOnlySpan<byte> ReadBytes(int count) => _binaryReader.ReadBytes(count);
 
     /// <returns>the next string in the stream</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal string PeekString()
     {
         string str;
         long originalPosition = _binaryReader.BaseStream.Position;
 
-        try{
+        try
+        {
             str = DeserializeString();
         }
-        finally{
+        finally
+        {
             _binaryReader.BaseStream.Position = originalPosition;
         }
 
@@ -98,17 +103,18 @@ public class UnrealPackage : IDisposable
         try
         {
             var strLength = DeserializeInt();
-            if (strLength <= UPropertyDataHelper.EMPTY)
+            if (strLength <= UDefinitions.Empty)
                 return string.Empty;
             strLength--;
 
             var bytes = new byte[strLength];
-            _binaryReader.Read(bytes, UPropertyDataHelper.EMPTY, strLength);
-            _fileStream.Position++;   
-            
+            _binaryReader.Read(bytes, UDefinitions.Empty, strLength);
+            _fileStream.Position++;
+
             return Encoding.UTF8.GetString(bytes);
         }
-        catch (Exception exception){
+        catch (Exception exception)
+        {
             throw new InvalidOperationException($"Failure deserializing string inside an Unreal Package. {exception}");
         }
     }
@@ -138,7 +144,8 @@ public class UnrealPackage : IDisposable
 
             return readValue;
         }
-        catch (ArgumentOutOfRangeException){
+        catch (ArgumentOutOfRangeException)
+        {
             throw new ArgumentOutOfRangeException($"Could not convert {sizeof(int)} bytes to an integer.");
         }
     }
@@ -148,10 +155,10 @@ public class UnrealPackage : IDisposable
         try
         {
             float floatRead = BitConverter.ToSingle(ReadBytes(sizeof(float)));
-            
+
             if (float.IsNaN(floatRead) || float.IsInfinity(floatRead))
                 throw new InvalidDataException($"Invalid float value: {floatRead}");
-                
+
             return floatRead;
         }
         catch (ArgumentOutOfRangeException)
@@ -163,22 +170,26 @@ public class UnrealPackage : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool DeserializeBool()
     {
-        try{
+        try
+        {
             return BitConverter.ToBoolean(ReadBytes(sizeof(bool)));
         }
-        catch (ArgumentOutOfRangeException){
+        catch (ArgumentOutOfRangeException)
+        {
             throw new ArgumentOutOfRangeException($"Could not convert {sizeof(bool)} to a bool.");
-        }     
+        }
     }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal byte DeserializeByte()
     {
-        try{
+        try
+        {
             return _binaryReader.ReadByte();
         }
-        catch (Exception){
+        catch (Exception)
+        {
             throw new InvalidOperationException($"Could not read byte inside of Unreal Package.");
-        }     
+        }
     }
 
     /// <summary>
@@ -194,7 +205,7 @@ public class UnrealPackage : IDisposable
 
         if (properties is null)
             return null!;
-        
+
         return properties;
     }
 
@@ -234,4 +245,3 @@ public class UnrealPackage : IDisposable
     }
     #endregion
 }
-

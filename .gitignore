@@ -289,4 +289,7 @@ __pycache__/
 *.odx.cs
 *.xsd.cs
 
-*.json
+# exlude files and folders related to the project
+OUTPUT/
+SAVE STORAGE LOCATION/
+

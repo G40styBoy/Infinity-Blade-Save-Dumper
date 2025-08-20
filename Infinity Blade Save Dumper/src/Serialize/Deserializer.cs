@@ -57,7 +57,7 @@ public class UPKDeserializer
                 UPK.RevertStreamPosition(tag.name);
                 PopulateUPropertyMetadata(ref tag, UType.ARRAY_PROPERTY, UNINITIALIZED_VALUE, UNINITIALIZED_VALUE);
                 tag.type = UType.ARRAY_PROPERTY;
-                tag.arrayEntryCount = UPropertyDataHelper.EMPTY;
+                tag.arrayEntryCount = UDefinitions.Empty;
             }
             else
             {

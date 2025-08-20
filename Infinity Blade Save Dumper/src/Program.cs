@@ -18,7 +18,7 @@ internal class Program
             PrintBanner();
             if (args.Length == 0)
             {
-                Console.WriteLine("Drag and drop a .json or .bin file here, then press Enter:");
+                Console.WriteLine("Drag and drop file here, then press Enter:");
                 inputPath = Console.ReadLine()?.Trim('"')!;
                 if (string.IsNullOrWhiteSpace(inputPath) || !File.Exists(inputPath))
                 {
@@ -38,6 +38,8 @@ internal class Program
             }
             
             string extension = Path.GetExtension(inputPath).ToLowerInvariant();
+
+
             try
             {
                 switch (extension)

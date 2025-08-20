@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using SaveDumper.Utilities;
 
 namespace SaveDumper.JsonParser;
 
@@ -7,48 +8,55 @@ namespace SaveDumper.JsonParser;
 /// Accepts Deserialized Data from an UnrealPackage and writes it to a .json file
 /// *generated data gets sent to \OUTPUT* 
 /// </summary>
-public class JsonDataParser
+public class JsonDataParser : IDisposable
 {
     private readonly string filePath = $@"{FilePaths.OutputDir}\Deserialized Save Data.json";
     private readonly List<UProperty> saveData;
+    private readonly FileStream fs;
+    private readonly Utf8JsonWriter writer;
 
-    public JsonDataParser(List<UProperty> saveData) => this.saveData = saveData;
+    public JsonDataParser(List<UProperty> saveData)
+    {
+        this.saveData = saveData;
 
-    // TODO: Add override for different file path?
+        fs = File.Create(filePath);
+        writer = new Utf8JsonWriter(fs, new JsonWriterOptions { Indented = true });
+    }
+
     /// <summary>
     /// Writes out all save data neatly into a json file
     /// </summary>
-    /// <param name="saveData">Data to parse</param>
-    /// <returns>If the operation was successful </returns>
     internal bool WriteDataToFile()
     {
-        FilePaths.ValidateOutputDirectory();
-
-        using (FileStream fs = File.Create(filePath))
+        try
         {
-            using (Utf8JsonWriter writer = new Utf8JsonWriter(fs, new JsonWriterOptions { Indented = true }))
+            writer.WriteStartObject();
+            foreach (var uProperty in saveData)
             {
-                writer.WriteStartObject();
-                foreach (var uProperty in saveData)
+                try
                 {
-                    try
-                    {
-                        uProperty.WriteValueData(writer, uProperty.name);
-                    }
-                    catch (Exception ex)
-                    {
-                        //TODO: handle errors more effeciently here
-                        Debug.WriteLine(ex.Message);
-                        return false;
-                    }
+                    uProperty.WriteValueData(writer, uProperty.name);
                 }
-
-                writer.WriteEndObject();
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex.Message);
+                    return false;
+                }
             }
-
+            writer.WriteEndObject();
+            writer.Flush();
             return true;
         }
+        catch (Exception ex)
+        {
+            Debug.WriteLine(ex.Message);
+            return false;
+        }
+    }
+
+    public void Dispose()
+    {
+        writer?.Dispose();
+        fs?.Dispose();
     }
 }
-
-

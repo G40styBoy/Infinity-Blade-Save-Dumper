@@ -23,58 +23,24 @@ public enum PropertyType
 }
 
 /// <summary>
-/// Used to package and pass tag data more neatly once its been stored.
+/// Helper class for the UProperty class and any other class that needs it as a dependency.
 /// </summary>
-public record struct TagContainer
-{
-    //UProperty
-    public string name;
-    public string type;
-    public int size;
-    public int arrayIndex;
-
-    //UStruct
-    public string alternateName;
-
-    //UArray
-    public int arrayEntryCount;
-    public ArrayMetadata arrayInfo;
-
-    /// <summary>
-    /// lets us know if we need to keep track of a properties total size for struct and array purposes
-    /// </summary>
-    public bool bShouldTrackMetadataSize;
-}
-
 public class UPropertyDataHelper
 {
-    public const int EMPTY = 0;
-    public const int NULL_TERMINATOR = sizeof(byte);
-    public const int ARRAY_INDEX_SIZE = sizeof(int);
-    public const int VALUE_SIZE = sizeof(int);
-    public const int INT_SIZE = sizeof(int);
-    public const int FLOAT_SIZE = sizeof(float);
-    public const int BYTE_SIZE = sizeof(byte);
-    /// <summary>
-    /// Size used for booleans inside of serialized data. Boolean size should usually be a byte
-    /// </summary>
-    public const int BYTE_SIZE_SPECIAL = EMPTY;
-    public const int BOOL_SIZE = sizeof(bool);
-
     internal int ReturnLitteEndianStringLength(string str)
     {
         if (str == string.Empty)
             return sizeof(int);
-        return VALUE_SIZE + str.Length + NULL_TERMINATOR;  
-    } 
+        return UDefinitions.VALUE_SIZE + str.Length + UDefinitions.NULL_TERMINATOR;
+    }
     internal void PopulatePropertyMetadataSize(UProperty property)
     {
         if (property.uPropertyElementSize is null)
-            property.uPropertyElementSize = EMPTY;
+            property.uPropertyElementSize = UDefinitions.Empty;
         property.uPropertyElementSize += ReturnLitteEndianStringLength(property.name); // name string size
         property.uPropertyElementSize += ReturnLitteEndianStringLength(property.type); // name type size
-        property.uPropertyElementSize += VALUE_SIZE; // Little endian value size
-        property.uPropertyElementSize += ARRAY_INDEX_SIZE; // little endian array index
+        property.uPropertyElementSize += UDefinitions.VALUE_SIZE; // Little endian value size
+        property.uPropertyElementSize += UDefinitions.ARRAY_INDEX_SIZE; // little endian array index
         property.uPropertyElementSize += property.size; // actual size of value
     }
 
@@ -101,40 +67,43 @@ public class UPropertyDataHelper
 
     internal protected delegate bool TryParseDelegate<T>(string input, out T result);
 
-    internal int CalculateArrayContentSize<T>(List<T> elements)
+    internal int CalculateSpecialPropertyContentSize<T>(List<T> elements)
     {
-        if (elements.Count is UPropertyDataHelper.EMPTY)
-            return EMPTY;
+        if (elements.Count is UDefinitions.Empty)
+            return UDefinitions.Empty;
 
         return elements[0] switch
         {
-            string => GetStringArraySize(elements),
+            string => GetSpecialPropertyArraySize(elements),
             int => elements.Count * sizeof(int),
             float => elements.Count * sizeof(float),
             bool => elements.Count * sizeof(bool),
             List<UProperty> => GetStructArraySize(elements),
-            UProperty => GetStructSize(elements),
+            UProperty => GetSpecialPropertyStructSize(elements),
             _ => throw new NotImplementedException("Dynamic array size calculation not implemented for this type.")
         };
     }
 
-    private protected int GetStringArraySize<T>(List<T> elements)
+    private protected int GetSpecialPropertyArraySize<T>(List<T> elements)
     {
         int totalSize = 0;
+
         foreach (string element in elements.OfType<string>())
             totalSize += ReturnLitteEndianStringLength(element);
 
         return totalSize;
     }
 
-    private protected int GetStructSize<T>(List<T> elements)
+    private protected int GetSpecialPropertyStructSize<T>(List<T> elements) => CalculatePropertyListSize(elements.OfType<UProperty>());
+
+    private int CalculatePropertyListSize(IEnumerable<UProperty> properties)
     {
         int totalSize = 0;
 
-        foreach (var property in elements.OfType<UProperty>())
+        foreach (var property in properties)
             totalSize += property.uPropertyElementSize ?? 0;
 
-        // Add "None" terminator size for each nested object
+        // Always add the "None" terminator
         totalSize += ReturnLitteEndianStringLength(UType.NONE);
 
         return totalSize;
@@ -143,33 +112,28 @@ public class UPropertyDataHelper
     private protected int GetStructArraySize<T>(List<T> elements)
     {
         int totalSize = 0;
-        foreach (var nestedArray in elements.OfType<List<UProperty>>())
-        {
-            foreach (var property in nestedArray)
-                totalSize += property.uPropertyElementSize ?? 0;
 
-            // Add "None" terminator size for each nested object
-            totalSize += ReturnLitteEndianStringLength(UType.NONE);
-        }
+        foreach (var nestedArray in elements.OfType<List<UProperty>>())
+            totalSize += CalculatePropertyListSize(nestedArray);
 
         return totalSize;
     }
 
     internal void SerializeString(ref BinaryWriter binWriter, string str)
     {
-        // write the size of the empty str
+        // write the size of the UDefinitions.Empty string
         if (str == string.Empty)
         {
-            binWriter.Write(EMPTY);
+            binWriter.Write(UDefinitions.Empty);
             return;
         }
 
         // instead of using binWriter.Write directly for strings, use this work-around 
-            // avoids appending the string size as a byte to the beginning of the string in hex
+        // avoids appending the string size as a byte to the beginning of the string in hex
         byte[] strBytes = Encoding.UTF8.GetBytes(str);
         binWriter.Write(str.Length + sizeof(byte)); // str + nt
         binWriter.Write(strBytes);
-        binWriter.Write((byte)EMPTY);  // null term
+        binWriter.Write((byte)UDefinitions.Empty);  // null term
     }
 
     internal void SerializeMetadata(ref BinaryWriter binWriter, UProperty property)
@@ -179,6 +143,46 @@ public class UPropertyDataHelper
         binWriter.Write(property.size);
         binWriter.Write(property.arrayIndex);
     }
+}
+
+/// <summary>
+/// Stores all definitions for UProperty related variables. This is used mostly to improve clarity and avoid magic numbers
+/// </summary>
+public record struct UDefinitions
+{
+    public const int Empty = 0;
+    public const int NULL_TERMINATOR = sizeof(byte);
+    public const int ARRAY_INDEX_SIZE = sizeof(int);
+    public const int VALUE_SIZE = sizeof(int);
+    /// <summary>
+    /// Size used for booleans inside of serialized data. Boolean size should usually be a byte
+    /// </summary>
+    public const int BYTE_SIZE_SPECIAL = UDefinitions.Empty;
+}
+
+/// <summary>
+/// Used to package and pass tag data neatly. 
+/// Ends up being used in uproperty construction
+/// </summary>
+public record struct TagContainer
+{
+    //UProperty
+    public string name;
+    public string type;
+    public int size;
+    public int arrayIndex;
+
+    //UStruct
+    public string alternateName;
+
+    //UArray
+    public int arrayEntryCount;
+    public ArrayMetadata arrayInfo;
+
+    /// <summary>
+    /// lets us know if we need to keep track of a properties total size for struct and array purposes
+    /// </summary>
+    public bool bShouldTrackMetadataSize;
 }
 
 /// <summary>
@@ -361,7 +365,7 @@ public abstract class UByteProperty : UProperty
         return tag.size switch
         {
             sizeof(byte) => new USimpleByteProperty(reader, tag),
-            UPropertyDataHelper.EMPTY => new UEnumByteProperty(ref reader, tag),
+            UDefinitions.Empty => new UEnumByteProperty(ref reader, tag),
             _ => throw new NotSupportedException($"Unsupported byte property size: {tag.size}")
         };
     }
@@ -475,7 +479,7 @@ public class UStructProperty : UProperty
     {
         this.structName = structName;
         this.elements = elements;
-        size += uHelper.CalculateArrayContentSize(elements);
+        size += uHelper.CalculateSpecialPropertyContentSize(elements);
 
         if (this.structName == string.Empty)
             this.structName = AttemptResolveAltName();
@@ -549,7 +553,7 @@ public class UArrayProperty<T> : UProperty
         arrayEntryCount = elements.Count;
         this.elements = elements;
         arrayInfo = tag.arrayInfo;
-        size += uHelper.CalculateArrayContentSize(elements);
+        size += uHelper.CalculateSpecialPropertyContentSize(elements);
         uHelper.PopulatePropertyMetadataSize(this);
     }
 
@@ -569,7 +573,7 @@ public class UArrayProperty<T> : UProperty
             {
                 writer.WriteStartObject();
                 foreach (UStructProperty element in elements.OfType<UStructProperty>())
-                    element.WriteValueData(writer, IBEnums.GetEnumEntryFromIndex(name, element.arrayIndex));
+                    element.WriteValueData(writer, IBEnum.GetEnumEntryFromIndex(name, element.arrayIndex));
 
                 writer.WriteEndObject();
                 return;
@@ -587,7 +591,7 @@ public class UArrayProperty<T> : UProperty
         if (arrayInfo.valueType is PropertyType.IntProperty)
         {
             writer.WriteStartObject();
-            LoopFunctionOverVariablesOfElementType<UProperty>(element => element.WriteValueData(writer, IBEnums.GetEnumEntryFromIndex(name, element.arrayIndex)));
+            LoopFunctionOverVariablesOfElementType<UProperty>(element => element.WriteValueData(writer, IBEnum.GetEnumEntryFromIndex(name, element.arrayIndex)));
             writer.WriteEndObject();
             return;
         }
@@ -602,7 +606,7 @@ public class UArrayProperty<T> : UProperty
 
     private void WriteDynamicElements(Utf8JsonWriter writer)
     {
-        if (arrayEntryCount is UPropertyDataHelper.EMPTY)
+        if (arrayEntryCount is UDefinitions.Empty)
             return;
 
         switch (elements[0])
@@ -669,13 +673,12 @@ public class UArrayProperty<T> : UProperty
         writer.WriteEndArray();
     }
 
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override void SerializeValue(BinaryWriter writer)
     {
         writer.Write(arrayEntryCount);
 
-        if (arrayEntryCount is UPropertyDataHelper.EMPTY)
+        if (arrayEntryCount is UDefinitions.Empty)
             return;
 
         // we need a hack here because the writer.Write method for strings does not function how i want

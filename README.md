@@ -31,4 +31,5 @@ It also has a feature that re-calculates and serializes your deserialized save, 
 
 ## ⚠️ Notes
 - Currently only works with **unencrypted** save files. Planning to add encrypted save support in the future.
-- Program is currently set to only deserialize IB3 saves. This is of course changable, but **seamless** modification to all file types is not implemented yet.
+- Tool is currently set to only deserialize IB3 saves. This is of course changable, but **seamless** modification to all file types is not implemented yet.
+- Tool is still in early stages of development. If bugs are encountered please create an issue. This will be released whenever im satisfied with the build quality.

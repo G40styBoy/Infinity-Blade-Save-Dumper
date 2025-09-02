@@ -1,35 +1,33 @@
 # Infinity Blade Save Dumper
 
-The **Infinity Blade Save Dumper** tool converts serialized Infinity Blade saves into a JSON file so you can make highly customizable changes.  
-It also has a feature that re-calculates and serializes your deserialized save, making it fast and easy to change and import back into your game.
+**IBSaveDumper** is a simple tool for handling save file packages for the Infinity Blade Trilogy. It allows you to extract, modify, and repackage save data with ease.
 
 ---
 
-## 📖 How to Use
-
-###  Deserialization (Convert `.bin` ➝ `.json`)
-1. Launch the program.
-2. Drag and drop an **unencrypted serialized `.bin` save file** into the program window.
-3. Press **Enter**.
-4. The tool will **deserialize** the save and create a `.json` file in the **`OUTPUT`** folder.
+## Features
+- **Simple interface**: Drag-and-drop support for `.bin` and `.json` files.  
+- **Encrypted save support**: Recognizes and decrypts encrypted save packages.  
+- **Deserialize saves**: Converts `.bin` save files into readable `.json` files.  
+- **Repackage saves**: Recalculates and repackages the deserialized file back into its original format.
 
 ---
 
-###  Serialization (Convert `.json` ➝ `.bin`)
-1. Launch the program.
-2. Drag and drop a **modified `.json` save file** into the program window.
-3. Press **Enter**.
-4. The tool will **serialize** the save and create a `.bin` file in the **`OUTPUT`** folder.
+## How it Works
+1. Drag and drop a `.bin` save file into the program.
+2. The program exports the save data as a `.json` file in the `OUTPUT` folder.
+3. Modify the `.json` file as needed.
+4. Drag and drop the modified `.json` file into the program.
+5. The program transforms your modified data back into the original save format.
 
 ---
 
-## 📂 Output Location
-- All converted files will be stored in the **`OUTPUT`** directory (created automatically if it doesn’t exist).
-  This means you do not need to create a backup of the save you're modifying since the new data will be packaged into an entirely new file.
+## ❓ Not sure what save files are supported? Check here!
+- Unencrypted IB3 ✅
+- Unencrypted/Encrypted IB2 ✅
+- Unencrypted/Encrypted IB1 ❌
+- Unencrypted/Encrypted VOTE! ❌
 
 ---
 
 ## ⚠️ Notes
-- Currently only works with **unencrypted** save files. Planning to add encrypted save support in the future.
-- Tool is currently set to only deserialize IB3 saves. This is of course changable, but **seamless** modification to all file types is not implemented yet.
 - Tool is still in early stages of development. If bugs are encountered please create an issue. This will be released whenever im satisfied with the build quality.

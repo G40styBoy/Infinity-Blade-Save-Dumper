@@ -1,9 +1,7 @@
 using SaveDumper.UArrayData;
 using System.Text.Json;
 using Newtonsoft.Json;
-using System.Runtime.CompilerServices;
 using System.Globalization;
-using System.Text;
 
 namespace SaveDumper.UPropertyData;
 
@@ -35,8 +33,7 @@ public class UPropertyDataHelper
     }
     internal void PopulatePropertyMetadataSize(UProperty property)
     {
-        if (property.uPropertyElementSize is null)
-            property.uPropertyElementSize = UDefinitions.Empty;
+        property.uPropertyElementSize ??= UDefinitions.Empty;
         property.uPropertyElementSize += ReturnLitteEndianStringLength(property.name); // name string size
         property.uPropertyElementSize += ReturnLitteEndianStringLength(property.type); // name type size
         property.uPropertyElementSize += UDefinitions.VALUE_SIZE; // Little endian value size
@@ -499,6 +496,7 @@ public class UStructProperty : UProperty
             "ForcedMapVariation" => "BossMapDefinition",
             "CurrentTotalTrackingStats" => "BattleTrackingStats",
             "GameOptions" => "PersistGameOptions",
+            "SocialChallengeSaveEvents" => "SocialChallengeSave",
             _ => string.Empty
         };
     }

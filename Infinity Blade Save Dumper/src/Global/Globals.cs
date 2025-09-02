@@ -2,8 +2,6 @@ using System.Diagnostics;
 
 public class Global
 {
-    public const string IB2AESKEY = " |FK}S];v]!!cw@E4l-gMXa9yDPvRfF*B";
-
     public static void PrintColored(string message, ConsoleColor color, bool resetColor = true)
     {
         Console.ForegroundColor = color;
@@ -27,9 +25,15 @@ public class Global
 
 public enum PackageType : byte
 {
-    VOTE,
+    NONE,
     IB1,
     IB2,
     IB3
 }
 
+public record struct AESKey
+{
+    public const string IB1 = "";
+    public const string IB2 = "|FK}S];v]!!cw@E4l-gMXa9yDPvRfF*B";
+    public const string IB3 = "";
+}

@@ -1,23 +1,31 @@
+using System.Reflection;
+
 /// <summary>
 /// Class designed to aid in dealing with Infinity Blade Enums
 /// </summary>
 public static class IBEnum
 {
+    private const string CONSUMABLE = "NumConsumable";
+    private const string CHEEVO = "SavedCheevo";
+    public static PackageType packageType = PackageType.NONE;
+
     public static string GetEnumEntryFromIndex(string alias, int idx)
     {
-        switch (alias)
+        return (packageType, alias) switch
         {
-            case "NumConsumable":
-                return ((ETouchRewardActor)idx).ToString();
-            case "SavedCheevo":
-                return ((eAchievements)idx).ToString();
-            default:
-                return $"Element_{idx + 1}";
-        }
+            (PackageType.IB2, CONSUMABLE) => EnumToString<eTouchRewardActor_IB2>(idx),
+            (PackageType.IB2, CHEEVO) => EnumToString<eAchievements_IB2>(idx),
+            (PackageType.IB3, CONSUMABLE) => EnumToString<eTouchRewardActor_IB3>(idx),
+            (PackageType.IB3, CHEEVO) => EnumToString<eAchievements_IB3>(idx),
+            _ => $"Element{idx + 1}"
+        };
     }
+
+    private static string EnumToString<T>(int idx) where T : Enum => ((T)(object)idx).ToString();
 
     /// <summary>
     /// Associates a string t from the generic enum passed.
+    /// Thisz
     /// </summary>
     /// <returns>Index position of the enum value, or -1 if not found</returns>
     public static int GetArrayIndexFromEnum<T>(string fName) where T : Enum
@@ -27,10 +35,44 @@ public static class IBEnum
             var enumNames = Enum.GetNames(typeof(T));
             return Array.IndexOf(enumNames, fName);
         }
-        return -1;
+
+        throw new InvalidDataException($"{fName} not found inside of {typeof(T)}");
     }
 
-    public enum ETouchRewardActor
+    public static int GetArrayIndexUsingReflection(Type enumType, string value)
+    {
+        MethodInfo method = typeof(IBEnum).GetMethod("GetArrayIndexFromEnum")!;
+        MethodInfo genericMethod = method.MakeGenericMethod(enumType);
+        try
+        {
+            return (int)genericMethod.Invoke(null, new object[] { value });
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception.Message);
+            return -1;
+        }
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="InvalidDataException"></exception>
+    public static Type GetArrayIndexEnum(string alias)
+    {
+        return (packageType, alias) switch
+        {
+            (PackageType.IB2, CONSUMABLE) => typeof(eTouchRewardActor_IB2),
+            (PackageType.IB2, CHEEVO) => typeof(eAchievements_IB2),
+            (PackageType.IB3, CONSUMABLE) => typeof(eTouchRewardActor_IB3),
+            (PackageType.IB3, CHEEVO) => typeof(eAchievements_IB3),
+            _ => throw new InvalidDataException("")
+        };
+    }
+
+    #region IB3 Enums
+    public enum eTouchRewardActor_IB3
     {
         TRA_Random,                     // 0
         TRA_Random_Potion,              // 1
@@ -85,7 +127,7 @@ public static class IBEnum
         TRA_MAX                         // 50
     }
 
-    public enum eAchievements
+    public enum eAchievements_IB3
     {
         A_NONE,                         // 0
         TRACK_Combo,                    // 1
@@ -175,6 +217,142 @@ public static class IBEnum
         EPCT_AllValid,                  // 2
         EPCT_MAX                        // 3
     };
+    #endregion
+
+    #region IB2 Enums
+    public enum eNewWorldType
+    {
+        NWT_SaveStart,                  // 0
+        NWT_NewBloodline,               // 1
+        NWT_NoSave,                     // 2
+        NWT_NoSave2,                    // 3
+        NWT_NoSave3,                    // 4
+        NWT_MinusStart,                 // 5
+        NWT_MAX                         // 6
+    };
+
+    public enum eTouchRewardActor_IB2
+    {
+        TRA_Random,                     // 0
+        TRA_Random_Potion,              // 1
+        TRA_Random_Gold,                // 2
+        TRA_Random_Key,                 // 3
+        TRA_Random_Gem,                 // 4
+        TRA_Random_Item,                // 5
+        TRA_None,                       // 6
+        TRA_Gold_Small,                 // 7
+        TRA_Gold_Medium,                // 8
+        TRA_Gold_Large,                 // 9
+        TRA_Key_Small,                  // 10
+        TRA_Key_Medium,                 // 11
+        TRA_Key_Large,                  // 12
+        TRA_Key_Item,                   // 13
+        TRA_Gem_Fixed,                  // 14
+        TRA_Item_Fixed,                 // 15
+        TRA_Item_Weapon,                // 16
+        TRA_Item_Shield,                // 17
+        TRA_Item_Armor,                 // 18
+        TRA_Item_Helmet,                // 19
+        TRA_Item_Magic,                 // 20
+        TRA_GrabBag_Small,              // 21
+        TRA_GrabBag_Medium,             // 22
+        TRA_GrabBag_Large,              // 23
+        TRA_GrabBag_SmallGem,           // 24
+        TRA_GrabBag_MediumGem,          // 25
+        TRA_GrabBag_LargeGem,           // 26
+        TRA_GrabBag_Uber,               // 27
+        TRA_Potion_HealthL,             // 28
+        TRA_Potion_HealthRegen,         // 29
+        TRA_Potion_ShieldRegen,         // 30
+        TRA_Potion_EasyParry,           // 31
+        TRA_Potion_HealthM,             // 32
+        TRA_Potion_HealthS,             // 33
+        TRA_Potion_HealthRegenL,        // 34
+        TRA_Potion_DoubleXP,            // 35
+        TRA_Potion_New5,                // 36
+        TRA_Potion_New6,                // 37
+        TRA_Potion_New7,                // 38
+        TRA_Potion_New8,                // 39
+        TRA_Potion_New9,                // 40
+        TRA_MAX                         // 41
+    };
+
+    public enum eAchievements_IB2
+    {
+        A_NONE,                         // 0
+        IB2_Combo1,                     // 1
+        IB2_Block1,                     // 2
+        IB2_Parry1,                     // 3
+        IB2_Parry2,                     // 4
+        IB2_Dodge1,                     // 5
+        IB2_Stab1,                      // 6
+        IB2_PerfectBlock1,              // 7
+        IB2_PerfectParry1,              // 8
+        IB2_PerfectSlash1,              // 9
+        IB2_Level1,                     // 10
+        IB2_Level2,                     // 11
+        IB2_Gold1,                      // 12
+        IB2_Treasure1,                  // 13
+        IB2_ModifiedItems1,             // 14
+        IB2_GrabBags1,                  // 15
+        IB2_Master1,                    // 16
+        IB2_Master2,                    // 17
+        IB2_InfinityBlade,              // 18
+        IB2_ClashMob1,                  // 19
+        IB2_ClashMob2,                  // 20
+        IB2_WinWOTakingDamage_SnS,      // 21
+        IB2_WinWOTakingDamage_2S,       // 22
+        IB2_WinWOTakingDamage_2H,       // 23
+        IB2_WinWOAttacking,             // 24
+        IB2_AllEquippedModified,        // 25
+        IB2_KillUberBoss1,              // 26
+        IB2_KillUberBoss2,              // 27
+        IB2_KillUberBoss3,              // 28
+        IB2_KillUberBoss4,              // 29
+        IB2_KillUberBoss5,              // 30
+        IB2_NewGamePlus,                // 31
+        IB2_KillUberBoss6,              // 32
+        IB2_KillUberBoss7,              // 33
+        IB2_KillUberBoss8,              // 34
+        IB2_KillUberBoss9,              // 35
+        IB2_GemCooker1,                 // 36
+        IB2_GemCooker2,                 // 37
+        IB2_GemCooker3,                 // 38
+        IB2_TreasureMapUsed,            // 39
+        IB2_TreasureMapCollected,       // 40
+        IB2_MeetTEL,                    // 41
+        IB2_EquipLaserWeapon,           // 42
+        IB2_ModifyALaserWeapon,         // 43
+        IB2_KillUberBoss10,             // 44
+        IB2_KillUberBoss11,             // 45
+        IB2_KillUberBoss12,             // 46
+        IB2_SpareUberBoss,              // 47
+        IB2_FindUberBoss,               // 48
+        IB2_GemCooker4,                 // 49
+        IB2_ItemSet,                    // 50
+        IB2_NegaGodKing,                // 51
+        AIB2_MAX_CHEEVO,                // 52
+        eAchievements_MAX               // 53
+    };
+
+    public enum eElementalType
+    {
+        AET_Random,                     // 0
+        AET_Fire,                       // 1
+        AET_Ice,                        // 2
+        AET_Electric,                   // 3
+        AET_Poison,                     // 4
+        AET_Light,                      // 5
+        AET_Dark,                       // 6
+        AET_Wind,                       // 7
+        AET_Water,                      // 8
+        AET_MAX                         // 9
+    };
+    #endregion
+
+    #region IB1 Enums
+
+    #endregion
 }
 
 

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 namespace SaveDumper.Utilities;
 
 public static class Util
@@ -6,8 +7,7 @@ public static class Util
     {
         string[] saveFiles = Directory.GetFiles(FilePaths.OutputDir, $"*{fileExtension}");
         if (saveFiles.Length == 0)
-            // start at 0
-            return $"{fileName}0{fileExtension}"; 
+            return $"{fileName}0{fileExtension}";
 
         int maxIndex = -1;
 
@@ -35,6 +35,73 @@ public static class Util
 
         return newFileName + fileExtension;
     }
+
+    public static byte[] DecryptDataECB(byte[] fileBytes, string aesKey)
+    {
+        // Omit the first 4 bytes since they are our save magic 
+        byte[] encryptedData = new byte[fileBytes.Length - 4];
+        Buffer.BlockCopy(fileBytes, 4, encryptedData, 0, encryptedData.Length);
+
+        using (Aes aes = Aes.Create())
+        {
+            aes.Key = Encoding.UTF8.GetBytes(aesKey);
+
+            if (aes.Key.Length != 16 && aes.Key.Length != 24 && aes.Key.Length != 32)
+                throw new ArgumentException("AES key must be 16, 24, or 32 bytes long.");
+
+            aes.Mode = CipherMode.ECB;
+            aes.Padding = PaddingMode.None;
+
+            using (ICryptoTransform decryptor = aes.CreateDecryptor())
+                return decryptor.TransformFinalBlock(encryptedData, 0, encryptedData.Length);
+        }
+    }
+
+    public static byte[] EncryptDataECB(byte[] dataToEncrypt, string aesKey, byte[] magicHeader = null!)
+    {
+        if (magicHeader == null)
+            magicHeader = new byte[] { 0x00, 0x00, 0x00, 0x00 };
+
+        if (magicHeader.Length != 4)
+            throw new ArgumentException("Magic header must be exactly 4 bytes");
+
+        using (Aes aes = Aes.Create())
+        {
+            aes.Key = Encoding.UTF8.GetBytes(aesKey);
+            if (aes.Key.Length != 16 && aes.Key.Length != 24 && aes.Key.Length != 32)
+                throw new ArgumentException("AES key must be 16, 24, or 32 bytes long.");
+
+            aes.Mode = CipherMode.ECB;
+            aes.Padding = PaddingMode.None;
+
+            byte[] paddedData = PadToBlockSize(dataToEncrypt, 16);
+
+            using (ICryptoTransform encryptor = aes.CreateEncryptor())
+            {
+                byte[] encryptedData = encryptor.TransformFinalBlock(paddedData, 0, paddedData.Length);
+                byte[] result = new byte[4 + encryptedData.Length];
+                Buffer.BlockCopy(magicHeader, 0, result, 0, 4);
+                Buffer.BlockCopy(encryptedData, 0, result, 4, encryptedData.Length);
+
+                return result;
+            }
+        }
+    }
+    
+    private static byte[] PadToBlockSize(byte[] data, int blockSize)
+    {
+        int remainder = data.Length % blockSize;
+        // already a multiple of 16: return
+        if (remainder is 0)
+            return data; 
+        
+        int paddingSize = blockSize - remainder;
+        byte[] paddedData = new byte[data.Length + paddingSize];
+        Buffer.BlockCopy(data, 0, paddedData, 0, data.Length);
+        
+        return paddedData;
+    }
+
 }
 
 /// <summary>
@@ -46,62 +113,59 @@ public static class ProgressBar
     {
         int barWidth = 50;
         bool running = true;
-        bool success = true;
-
+        Exception? caughtException = null;
+        
         Thread progressThread = new Thread(() =>
         {
             int progress = 0;
+            int currentTop = Console.CursorTop;
+            
             while (running)
             {
-                progress = (progress + 1) % (barWidth + 1);
-
                 Console.CursorVisible = false;
-                Console.SetCursorPosition(0, Console.CursorTop);
-
+                Console.SetCursorPosition(0, currentTop);
                 Global.PrintColored($"{label}: [", ConsoleColor.White, false);
                 Global.PrintColored(new string('=', progress), ConsoleColor.Yellow, false);
                 Console.Write(new string(' ', barWidth - progress));
                 Global.PrintColored("]", ConsoleColor.White, false);
-
+                progress = (progress + 1) % (barWidth + 1);
                 Thread.Sleep(50);
             }
         });
-
+        
         progressThread.Start();
-
+        
         try
         {
             work();
         }
         catch (Exception ex)
         {
-            success = false;
-            running = false;
-            progressThread.Join();
-
-            Console.WriteLine();
-            Global.PrintColored($"Error: {ex.Message}\n", ConsoleColor.Red);
-            return;
+            caughtException = ex;
         }
-
-        finally
+        
+        running = false;
+        progressThread.Join();
+        
+        Console.SetCursorPosition(0, Console.CursorTop);
+        Global.PrintColored($"{label}: [", ConsoleColor.White, false);
+        
+        if (caughtException == null)
         {
-            running = false;
-            progressThread.Join();
-
-            Console.SetCursorPosition(0, Console.CursorTop);
-            Global.PrintColored($"{label}: [", ConsoleColor.White, false);
-
-            if (success)
-                Global.PrintColored(new string('=', barWidth), ConsoleColor.Green, false);
-            else
-                Global.PrintColored(new string('=', barWidth), ConsoleColor.Red, false);
-
+            Global.PrintColored(new string('=', barWidth), ConsoleColor.Green, false);
             Global.PrintColored("] 100%\n", ConsoleColor.White);
-            Console.CursorVisible = true;
         }
+        else
+        {
+            Global.PrintColored(new string('=', barWidth), ConsoleColor.Red, false);
+            Global.PrintColored("] FAILED\n", ConsoleColor.White);
+            Global.PrintColored($"Error: {caughtException.Message}\n", ConsoleColor.Red);
+        }
+        
+        Console.CursorVisible = true;
     }
 }
+
 
 /// <summary>
 /// Helps keep file locations, names, etc. organized.
@@ -125,4 +189,4 @@ public static class FilePaths
     }
 
     public static bool DoesOutputExist() => File.Exists(OutputDir);
-}
+};

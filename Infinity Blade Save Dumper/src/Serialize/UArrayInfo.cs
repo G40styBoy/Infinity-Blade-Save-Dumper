@@ -21,6 +21,9 @@ public enum AlternateName
     SavedCheevoData,
     ShowConsumableBadge,
     LastEquippedWeaponOfType,
+
+    //ib2
+    SocialChallengeSave
 }
 
 public enum ArrayName
@@ -33,6 +36,10 @@ public enum ArrayName
     PlayerCookerGems,
     SuperBoss,
     ActiveBattlePotions,
+    SocialChallengeSaveEvents,
+        // SUBSET //
+        GiftedTo,
+        GiftedFrom,
 
     // VOTE //
 
@@ -194,6 +201,11 @@ public class UArray
             new ArrayMetadata(ArrayName.PlayerCookerGems, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
             new ArrayMetadata(ArrayName.SuperBoss, AlternateName.None, PropertyType.IntProperty, ArrayType.Dynamic),
             new ArrayMetadata(ArrayName.ActiveBattlePotions, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
+
+            // Subset Arrays
+            new ArrayMetadata(ArrayName.SocialChallengeSaveEvents, AlternateName.SocialChallengeSave, PropertyType.StructProperty, ArrayType.Dynamic),
+            new ArrayMetadata(ArrayName.GiftedTo, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
+            new ArrayMetadata(ArrayName.GiftedFrom, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
 
             // IB1
             new ArrayMetadata(ArrayName.PlaythroughItemsGiven, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic)

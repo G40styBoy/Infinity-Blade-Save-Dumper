@@ -11,53 +11,73 @@ class DataSerializer : IDisposable
 {
     private const string DEFAULT_NAME = "UnencryptedSave0";
     private const string EXTENSION = ".bin";
-    private const string CUSTOM_NAME = "Serialized Save Data.bin";
 
     private readonly List<UProperty> crunchedData;
     private BinaryWriter binWriter;
+    private FileStream stream;
     private readonly UPropertyDataHelper uhelper;
+    private readonly string outputPath;
+    private UnrealPackage UPK;
 
-    public DataSerializer(List<UProperty> crunchedData)
+    public DataSerializer(UnrealPackage UPK, List<UProperty> crunchedData)
     {
+        this.UPK = UPK;
         this.crunchedData = crunchedData;
+        string fileName;
         uhelper = new UPropertyDataHelper();
 
-        string outputPath = Path.Combine(FilePaths.OutputDir, Util.GetNextSaveFileNameForOuput(DEFAULT_NAME, EXTENSION));
+        if (UPK.packageData.isEncrypted)
+            fileName = $"{UPK.packageData.packageName} - MODDED{EXTENSION}";
+        else
+            fileName = Util.GetNextSaveFileNameForOuput(DEFAULT_NAME, EXTENSION);
 
-        // setup stream + writer here
-        FileStream fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
-        binWriter = new BinaryWriter(fs);
+        outputPath = Path.Combine(FilePaths.OutputDir, fileName);
+
+        stream = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+        binWriter = new BinaryWriter(stream);
     }
 
     internal bool SerializeAndOutputData()
     {
-        int saveType = 5;
-        uint saveMagic = 4294967295;
         try
         {
-            // placeholder for now of the package header contents
-            // this will not support unencrypted
-            binWriter.Write(saveType);
-            binWriter.Write(saveMagic);
+            // write our file header contents
+            binWriter.Write(UPK.packageData.saveType);
+            binWriter.Write(UPK.packageData.savePadding);
 
             foreach (var uProperty in crunchedData)
             {
                 uhelper.SerializeMetadata(ref binWriter, uProperty);
                 uProperty.SerializeValue(binWriter);
             }
+            uhelper.SerializeString(ref binWriter, "None");
+            binWriter.Flush(); 
 
-            binWriter.Flush(); // make sure all data is written out
+            if (UPK.packageData.isEncrypted)
+                EncryptPackage();
+
             return true;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex.Message);
-            return false;
+            throw new InvalidOperationException(ex.Message);
         }
+    }
+
+    private void EncryptPackage()
+    {
+        Dispose();
+
+        var encryptedData = Util.EncryptDataECB(
+            File.ReadAllBytes(outputPath), AESKey.IB2, UPK.packageData.saveMagic);
+
+        // once we dispose of files' resources we are going to duplicate it but with the encrypted data
+        File.WriteAllBytes(outputPath, encryptedData);        
     }
 
     public void Dispose()
     {
         binWriter?.Dispose();
+        stream?.Dispose();
     }
 }

@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Newtonsoft.Json;
 using SaveDumper.UArrayData;
+using System.Reflection;
 using SaveDumper.Utilities;
 
 namespace SaveDumper.JsonCruncher;
@@ -227,13 +228,15 @@ class JsonDataCruncher
     {
         var reconstructedIntPropertyList = new List<UProperty>();
         string parentName = parentTag.arrayInfo.arrayName.ToString();
+        // we always get the enum type here since only 1 property type executes this method
+        Type enumType = IBEnum.GetArrayIndexEnum(parentName);
 
         //skip over "{" 
         reader.Read();
         while (ReadJsonList())
         {
             ReadPropertyName(out TagContainer tag);
-            int arrayIndex = IBEnum.GetArrayIndexFromEnum<IBEnum.ETouchRewardActor>(uHelper.ReaderValueToString(reader));
+            int arrayIndex = IBEnum.GetArrayIndexUsingReflection(enumType, uHelper.ReaderValueToString(reader));
             PopulateUPropertyMetadata(ref tag, UType.INT_PROPERTY, sizeof(int), arrayIndex);
 
             tag.name = parentName;
@@ -272,10 +275,14 @@ class JsonDataCruncher
         string parentName = parentTag.arrayInfo.arrayName.ToString();
         int arrayIndex = 0;
         bool shouldCalculateIndex = IsSpecialStruct(parentTag.name);
+        Type enumType = null!;
 
-        // reade over the object that encapsulates our static struct data
+        // read over the object that encapsulates our static struct data
         if (shouldCalculateIndex)
+        {
             reader.Read();
+            enumType = IBEnum.GetArrayIndexEnum(parentName);
+        }
 
         while (ReadJsonDictionary())
         {
@@ -290,7 +297,8 @@ class JsonDataCruncher
                     reader.Read();
                     break;
                 }
-                arrayIndex = IBEnum.GetArrayIndexFromEnum<IBEnum.eAchievements>(uHelper.ReaderValueToString(reader));
+
+                arrayIndex = IBEnum.GetArrayIndexUsingReflection(enumType, uHelper.ReaderValueToString(reader));
             }
             PopulateUPropertyMetadata(ref tag, UType.STRUCT_PROPERTY, UDefinitions.Empty, arrayIndex);
 

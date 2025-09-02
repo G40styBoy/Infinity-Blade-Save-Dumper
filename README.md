@@ -25,7 +25,6 @@
 - Unencrypted IB3 ✅
 - Unencrypted/Encrypted IB2 ✅
 - Unencrypted/Encrypted IB1 ❌
-- Unencrypted/Encrypted VOTE! ❌
 
 ---
 

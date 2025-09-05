@@ -30,3 +30,7 @@
 
 ## ⚠️ Notes
 - Tool is still in early stages of development. If bugs are encountered please create an issue. This will be released whenever im satisfied with the build quality.
+
+---
+## Credits
+- Hox8 for sending me all AES keys for each game.

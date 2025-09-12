@@ -1,5 +1,13 @@
 using System.Reflection;
 
+public enum Game
+{
+    IB1,
+    IB2,
+    IB3,
+    VOTE
+}
+
 /// <summary>
 /// Class designed to aid in dealing with Infinity Blade Enums
 /// </summary>
@@ -7,16 +15,18 @@ public static class IBEnum
 {
     private const string CONSUMABLE = "NumConsumable";
     private const string CHEEVO = "SavedCheevo";
-    public static PackageType packageType = PackageType.NONE;
+    private const string VOTE_COUNT = "LastVoteCount";
+    public static Game game;
 
     public static string GetEnumEntryFromIndex(string alias, int idx)
     {
-        return (packageType, alias) switch
+        return (game, alias) switch
         {
-            (PackageType.IB2, CONSUMABLE) => EnumToString<eTouchRewardActor_IB2>(idx),
-            (PackageType.IB2, CHEEVO) => EnumToString<eAchievements_IB2>(idx),
-            (PackageType.IB3, CONSUMABLE) => EnumToString<eTouchRewardActor_IB3>(idx),
-            (PackageType.IB3, CHEEVO) => EnumToString<eAchievements_IB3>(idx),
+            (Game.IB2 or Game.IB1, CONSUMABLE) => EnumToString<eTouchRewardActor_IB2>(idx),
+            (Game.IB2 or Game.IB1, CHEEVO) => EnumToString<eAchievements_IB2>(idx),
+            (Game.IB3, CONSUMABLE) => EnumToString<eTouchRewardActor_IB3>(idx),
+            (Game.IB3, CHEEVO) => EnumToString<eAchievements_IB3>(idx),
+            (Game.VOTE, VOTE_COUNT) => EnumToString<CharacterFilterEnum>(idx),
             _ => $"Element{idx + 1}"
         };
     }
@@ -41,7 +51,7 @@ public static class IBEnum
 
     public static int GetArrayIndexUsingReflection(Type enumType, string value)
     {
-        MethodInfo method = typeof(IBEnum).GetMethod("GetArrayIndexFromEnum")!;
+        MethodInfo method = typeof(IBEnum).GetMethod(nameof(GetArrayIndexFromEnum))!;
         MethodInfo genericMethod = method.MakeGenericMethod(enumType);
         try
         {
@@ -49,8 +59,7 @@ public static class IBEnum
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception.Message);
-            return -1;
+            throw new InvalidOperationException(exception.Message);
         }
     }
 
@@ -61,12 +70,13 @@ public static class IBEnum
     /// <exception cref="InvalidDataException"></exception>
     public static Type GetArrayIndexEnum(string alias)
     {
-        return (packageType, alias) switch
+        return (game, alias) switch
         {
-            (PackageType.IB2, CONSUMABLE) => typeof(eTouchRewardActor_IB2),
-            (PackageType.IB2, CHEEVO) => typeof(eAchievements_IB2),
-            (PackageType.IB3, CONSUMABLE) => typeof(eTouchRewardActor_IB3),
-            (PackageType.IB3, CHEEVO) => typeof(eAchievements_IB3),
+            (Game.IB2 or Game.IB1, CONSUMABLE) => typeof(eTouchRewardActor_IB2),
+            (Game.IB2 or Game.IB1, CHEEVO) => typeof(eAchievements_IB2),
+            (Game.IB3, CONSUMABLE) => typeof(eTouchRewardActor_IB3),
+            (Game.IB3, CHEEVO) => typeof(eAchievements_IB3),
+            (Game.VOTE, VOTE_COUNT) => typeof(CharacterFilterEnum),
             _ => throw new InvalidDataException("")
         };
     }
@@ -353,6 +363,14 @@ public static class IBEnum
     #region IB1 Enums
 
     #endregion
+
+    #region VOTE
+    enum CharacterFilterEnum
+    {
+        CFE_All,                        // 0
+        CFE_Obama,                      // 1
+        CFE_Romney,                     // 2
+        CFE_MAX                         // 3
+    };
+    #endregion
 }
-
-

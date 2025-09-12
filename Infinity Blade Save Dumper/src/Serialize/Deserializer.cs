@@ -1,5 +1,3 @@
-using SaveDumper.UArrayData;
-
 namespace SaveDumper.Deserializer;
 
 /// <summary>
@@ -8,46 +6,44 @@ namespace SaveDumper.Deserializer;
 public class UPKDeserializer
 {
     private List<ArrayMetadata> gamearrayInfo;
-    private List<UProperty> _genericProperties = new();
+    private List<UProperty> propertyCollection = new();
 
-    private const int MAX_STATIC_ARRAY_ELEMENTS = 10000; // Prevent memory exhaustion
+    private const int MAX_STATIC_ARRAY_ELEMENTS = 2000; // Prevent memory exhaustion
     private static readonly int UNINITIALIZED_VALUE = -1; 
 
-    internal protected UPKDeserializer(PackageType type) => gamearrayInfo = UArray.PopulateArrayInfo(type);
+    internal protected UPKDeserializer(Game game) => gamearrayInfo = UArray.PopulateArrayInfo(game);
     
     internal List<UProperty> DeserializePackage(UnrealPackage UPK)
     {
-        while (!UPK.IsEndFile())
+        while (!UPK.IsEndFile()) 
         {
             try
             {
                 UProperty tag = ConstructTag(UPK);
-                if (tag != null)
-                    _genericProperties.Add(tag);
+
+                // once we pull in the None property the package has been fully read
+                if (tag is null)
+                    break;
+                propertyCollection.Add(tag);
             }
             catch (Exception exception)
             {
-                Console.WriteLine($"Error: {exception.Message}\nFile Position: {UPK.GetStreamPosition()}\nFile Length: {UPK.GetStreamLength()}");
-                return null!;
+                throw new InvalidOperationException(exception.Message);
             }
         }
-        return _genericProperties;
+        return propertyCollection;
     }
 
     private UProperty ConstructTag(UnrealPackage UPK, bool allowStaticArrayDetection = true)
     {
         try
         {
-            if (UPK.IsEndFile())
-                throw new Exception("Attempting to construct tag when file has been fully read.");
-
-            // immediatly checking if we pull in NONE
-            // signify end of construction asap
+            // immediatly checking if we pull in "None"
             var tag = new TagContainer();
             tag.name = UPK.DeserializeString();
-            if (tag.name is UType.NONE)
+            if (tag.name is UType.NONE)               
                 return null!;
-
+            
             // We can tell the compiler to ignore the warning about tag.arrayInfo possibly being null
             // null possibility is fully accounted for, and in some cases expected for logic
             tag.arrayInfo = UArray.GetCurrentArray(gamearrayInfo, tag.name)!;
@@ -57,7 +53,7 @@ public class UPKDeserializer
                 UPK.RevertStreamPosition(tag.name);
                 PopulateUPropertyMetadata(ref tag, UType.ARRAY_PROPERTY, UNINITIALIZED_VALUE, UNINITIALIZED_VALUE);
                 tag.type = UType.ARRAY_PROPERTY;
-                tag.arrayEntryCount = UDefinitions.Empty;
+                tag.arrayEntryCount = 0;
             }
             else
             {
@@ -67,8 +63,10 @@ public class UPKDeserializer
             }
             return ConstructUProperty(UPK, tag);
         }
-        catch (Exception)
-            { return null!; }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException(exception.Message);
+        }  
     }
 
     /// <summary>
@@ -98,7 +96,8 @@ public class UPKDeserializer
 
     private UStructProperty CreateStructProperty(UnrealPackage UPK, TagContainer tag)
     {
-        tag.alternateName = UPK.DeserializeString();  // store the alternate name for the struct somewhere. This does not get used! 
+        // store the alternate name for the struct somewhere. This does not get used!
+        tag.alternateName = UPK.DeserializeString();   
         LoopTagConstructor(UPK, out List<UProperty> elements);
         return new UStructProperty(tag, tag.alternateName, elements);
     }

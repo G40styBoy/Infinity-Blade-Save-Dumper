@@ -1,7 +1,8 @@
 ﻿using SaveDumper.JsonParser;
 using SaveDumper.JsonCruncher;
 using SaveDumper.Serializer;
-using SaveDumper.Utilities;
+using System.Reflection.Emit;
+using System.Security.Cryptography;
 
 namespace SaveDumper;
 
@@ -10,7 +11,7 @@ internal class Program
     private static string? inputPath;
     private static bool debug = false;
 
-    public static void Main(string[] args)
+    public static void Main()
     {
         if (debug)
         {
@@ -40,7 +41,16 @@ internal class Program
             UnrealPackage UPK;
             try
             {
-                UPK = new UnrealPackage(inputPath, true);
+                UPK = new UnrealPackage(inputPath);
+
+                // if our package is encrypted, we need to create 
+                // a new stream with the decrypted data 
+                if (UPK.packageData.bisEncrypted)
+                {
+                    UPK.Dispose();
+                    UPK = new UnrealPackage(UPK.packageData);
+                }
+
                 RunDeserialization(UPK);
             }
             catch (Exception ex)
@@ -74,58 +84,58 @@ internal class Program
         }
     }
 
-private static string PromptForFile(string prompt, string requiredExtension, string invalidMessage, string wrongExtensionMessage)
-{
-    string? path;
-    bool showingError = false;
-    
-    while (true)
+    private static string PromptForFile(string prompt, string requiredExtension, string invalidMessage, string wrongExtensionMessage)
     {
-        int promptLine = Console.CursorTop;
-        
-        if (!showingError)
-            Console.Write(prompt);
-        
-        path = Console.ReadLine()?.Trim('"');
-        
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            ClearAndShowError(promptLine, invalidMessage);
-            showingError = true;
-            continue;
-        }
-        
-        if (Path.GetExtension(path).ToLowerInvariant() != requiredExtension)
-        {
-            ClearAndShowError(promptLine, wrongExtensionMessage);
-            showingError = true;
-            continue;
-        }
-        
-        break;
-    }
-    return path!;
-}
+        string? path;
+        bool showingError = false;
 
-private static void ClearAndShowError(int startLine, string message)
-{
-    // Clear from the start line downward (3 lines should be enough)
-    for (int i = 0; i < 3; i++)
-    {
-        Console.SetCursorPosition(0, startLine + i);
-        Console.Write(new string(' ', Console.WindowWidth - 1));
+        while (true)
+        {
+            int promptLine = Console.CursorTop;
+
+            if (!showingError)
+                Console.Write(prompt);
+
+            path = Console.ReadLine()?.Trim('"');
+
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                ClearAndShowError(promptLine, invalidMessage);
+                showingError = true;
+                continue;
+            }
+
+            if (Path.GetExtension(path).ToLowerInvariant() != requiredExtension)
+            {
+                ClearAndShowError(promptLine, wrongExtensionMessage);
+                showingError = true;
+                continue;
+            }
+
+            break;
+        }
+        return path!;
     }
-    
-    Console.SetCursorPosition(0, startLine);
-    Console.Write(message);
-}
+
+    private static void ClearAndShowError(int startLine, string message)
+    {
+        // clear from the start line downward (3 lines should be enough)
+        for (int i = 0; i < 3; i++)
+        {
+            Console.SetCursorPosition(0, startLine + i);
+            Console.Write(new string(' ', Console.WindowWidth - 1));
+        }
+
+        Console.SetCursorPosition(0, startLine);
+        Console.Write(message);
+    }
 
     private static void PrintBanner()
     {
-        Global.PrintColoredLine("========================================", ConsoleColor.Cyan, true);
-        Global.PrintColoredLine("         SAVE DUMPER TOOL v0.2          ", ConsoleColor.Cyan, true);
-        Global.PrintColoredLine("========================================", ConsoleColor.Cyan, true);
-        Global.PrintColoredLine(" © 2025 G40sty. All rights reserved.\n", ConsoleColor.DarkGray, true);
+        Util.PrintColoredLine("========================================", ConsoleColor.Cyan, true);
+        Util.PrintColoredLine("         SAVE DUMPER TOOL v0.2          ", ConsoleColor.Cyan, true);
+        Util.PrintColoredLine("========================================", ConsoleColor.Cyan, true);
+        Util.PrintColoredLine(" © 2025 G40sty. All rights reserved.\n", ConsoleColor.DarkGray, true);
     }
 
     private static void WaitAndRestart()
@@ -139,7 +149,7 @@ private static void ClearAndShowError(int startLine, string message)
     {
         ProgressBar.Run("Serializing", () =>
         {
-            var cruncher = new JsonDataCruncher(jsonPath, UPK.packageData.PackageType);
+            var cruncher = new JsonDataCruncher(jsonPath, UPK.packageData.game);
             var crunchedData = cruncher.ReadJsonFile();
             if (crunchedData is null)
                 throw new InvalidOperationException("Serialization process failed!");
@@ -158,7 +168,7 @@ private static void ClearAndShowError(int startLine, string message)
                 throw new InvalidOperationException("Deserialization process failed!");
 
             using (var JsonDataParser = new JsonDataParser(uProperties))
-                JsonDataParser.WriteDataToFile();
+                JsonDataParser.WriteDataToFile(UPK);
 
             UPK.Dispose();
         });
@@ -168,7 +178,9 @@ private static void ClearAndShowError(int startLine, string message)
     /// For development testing
     /// </summary>
     private static void DebugMain()
-    {   
+    {
         Console.ReadKey();
     }
 }
+
+

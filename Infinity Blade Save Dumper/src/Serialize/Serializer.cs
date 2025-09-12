@@ -1,5 +1,4 @@
-using System.Diagnostics;
-using SaveDumper.Utilities;
+using SaveDumper.UnrealPackageManager.Crypto;
 
 namespace SaveDumper.Serializer;
 
@@ -26,14 +25,14 @@ class DataSerializer : IDisposable
         string fileName;
         uhelper = new UPropertyDataHelper();
 
-        if (UPK.packageData.isEncrypted)
-            fileName = $"{UPK.packageData.packageName} - MODDED{EXTENSION}";
-        else
-            fileName = Util.GetNextSaveFileNameForOuput(DEFAULT_NAME, EXTENSION);
+        // if (UPK.packageData.bisEncrypted)
+        //     fileName = $"{UPK.packageData.packageName} - MODDED{EXTENSION}";
+        // else
+        fileName = $@"{UPK.packageData.packageName}{EXTENSION}";
 
         outputPath = Path.Combine(FilePaths.OutputDir, fileName);
 
-        stream = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+        stream = new FileStream(outputPath, FileMode.Create, FileAccess.ReadWrite);
         binWriter = new BinaryWriter(stream);
     }
 
@@ -41,20 +40,17 @@ class DataSerializer : IDisposable
     {
         try
         {
-            // write our file header contents
-            binWriter.Write(UPK.packageData.saveType);
-            binWriter.Write(UPK.packageData.savePadding);
-
+            SerializePackageHeader();
             foreach (var uProperty in crunchedData)
             {
                 uhelper.SerializeMetadata(ref binWriter, uProperty);
                 uProperty.SerializeValue(binWriter);
             }
             uhelper.SerializeString(ref binWriter, "None");
-            binWriter.Flush(); 
+            binWriter.Flush();
 
-            if (UPK.packageData.isEncrypted)
-                EncryptPackage();
+            if (UPK.packageData.bisEncrypted)
+                PackageCrypto.EncryptPackage(ref stream, UPK.packageData);
 
             return true;
         }
@@ -64,15 +60,63 @@ class DataSerializer : IDisposable
         }
     }
 
-    private void EncryptPackage()
+    private void SerializePackageHeader()
     {
-        Dispose();
+        // even encrypted files have header data stored before encryption
+        // add here so the file can be read correctly when loading a save
+        if (UPK.packageData.bisEncrypted)
+        {
+            switch (UPK.packageData.game)
+            {
+                case Game.IB1:
+                    binWriter.Write(PackageCrypto.NO_MAGIC);
+                    break;
+                case Game.IB2 or Game.VOTE:
+                    binWriter.Write(0);
+                    binWriter.Write(PackageCrypto.NO_MAGIC);
+                    break;
+                default:
+                    throw new InvalidDataException("Package is encrypted but its game type for header population isnt supported.");
+            }
+            return;
+        }
 
-        var encryptedData = Util.EncryptDataECB(
-            File.ReadAllBytes(outputPath), AESKey.IB2, UPK.packageData.saveMagic);
+        // write out unencrypted header info
+        binWriter.Write(UPK.packageData.saveVersion);
+        binWriter.Write(UPK.packageData.saveMagic);        
+    }
 
-        // once we dispose of files' resources we are going to duplicate it but with the encrypted data
-        File.WriteAllBytes(outputPath, encryptedData);        
+    private string GetNextSaveFileNameForOuput(string fileName, string fileExtension)
+    {
+        string[] saveFiles = Directory.GetFiles(FilePaths.OutputDir, $"*{fileExtension}");
+        if (saveFiles.Length == 0)
+            return $"{fileName}0{fileExtension}";
+
+        int maxIndex = -1;
+
+        foreach (var file in saveFiles)
+        {
+            string nameWithoutExt = Path.GetFileNameWithoutExtension(file);
+
+            var match = System.Text.RegularExpressions.Regex.Match(nameWithoutExt, @"(\d+)$");
+            if (match.Success && int.TryParse(match.Value, out int index))
+            {
+                if (index > maxIndex)
+                    maxIndex = index;
+            }
+        }
+
+        int nextIndex = maxIndex + 1;
+        string newFileName = System.Text.RegularExpressions.Regex.Replace(
+            fileName,
+            @"\d+$",
+            nextIndex.ToString()
+        );
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(fileName, @"\d+$"))
+            newFileName = $"{fileName}{nextIndex}";
+
+        return newFileName + fileExtension;
     }
 
     public void Dispose()

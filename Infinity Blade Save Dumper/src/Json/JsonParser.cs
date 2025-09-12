@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text.Json;
-using SaveDumper.Utilities;
 
 namespace SaveDumper.JsonParser;
 
@@ -20,36 +19,26 @@ public class JsonDataParser : IDisposable
         this.saveData = saveData;
 
         fs = File.Create(filePath);
-        writer = new Utf8JsonWriter(fs, new JsonWriterOptions { Indented = true });
+        writer = new Utf8JsonWriter(fs, new JsonWriterOptions {Indented = true});
     }
 
     /// <summary>
     /// Writes out all save data neatly into a json file
     /// </summary>
-    internal bool WriteDataToFile()
+    internal void WriteDataToFile(UnrealPackage UPK)
     {
+        // set the package type for our enumerator class so our program knows what game's enum pool to pull from
+        IBEnum.game = UPK.packageData.game;
         try
         {
             writer.WriteStartObject();
             foreach (var uProperty in saveData)
-            {
-                try
-                {
-                    uProperty.WriteValueData(writer, uProperty.name);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine(ex.Message);
-                    return false;
-                }
-            }
+                uProperty.WriteValueData(writer, uProperty.name);
             writer.WriteEndObject();
-            return true;
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            Debug.WriteLine(ex.Message);
-            return false;
+            throw new InvalidOperationException(exception.Message);
         }
     }
 

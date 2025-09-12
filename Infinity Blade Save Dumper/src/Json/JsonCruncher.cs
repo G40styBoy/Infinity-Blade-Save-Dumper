@@ -1,8 +1,4 @@
-using System.Runtime.CompilerServices;
 using Newtonsoft.Json;
-using SaveDumper.UArrayData;
-using System.Reflection;
-using SaveDumper.Utilities;
 
 namespace SaveDumper.JsonCruncher;
 
@@ -24,7 +20,7 @@ class JsonDataCruncher
     private List<ArrayMetadata> arrayData;
     private UPropertyDataHelper uHelper;
 
-    public JsonDataCruncher(string jsonFile, PackageType type)
+    public JsonDataCruncher(string jsonFile, Game type)
     {
         string jsonFileText = File.ReadAllText(jsonFile);
         reader = new JsonTextReader(new StringReader(jsonFileText));
@@ -115,25 +111,25 @@ class JsonDataCruncher
         if (ShouldTreatAsByteProperty(tag.name))
         {
             RemovePrefix(ref tag.name, BYTE_PREFIX);
-            PopulateUPropertyMetadata(ref tag, UType.BYTE_PROPERTY, sizeof(byte), UDefinitions.Empty);
+            PopulateUPropertyMetadata(ref tag, UType.BYTE_PROPERTY, sizeof(byte), 0);
             return UByteProperty.InstantiateProperty(ref reader, tag);
         }
 
-        PopulateUPropertyMetadata(ref tag, UType.INT_PROPERTY, sizeof(int), UDefinitions.Empty);
+        PopulateUPropertyMetadata(ref tag, UType.INT_PROPERTY, sizeof(int), 0);
         return new UIntProperty(reader, tag);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private UProperty JsonFloat(TagContainer tag)
     {
-        PopulateUPropertyMetadata(ref tag, UType.FLOAT_PROPERTY, sizeof(float), UDefinitions.Empty);
+        PopulateUPropertyMetadata(ref tag, UType.FLOAT_PROPERTY, sizeof(float), 0);
         return new UFloatProperty(reader, tag);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private UProperty JsonBoolean(TagContainer tag)
     {
-        PopulateUPropertyMetadata(ref tag, UType.BOOL_PROPERTY,UDefinitions.BYTE_SIZE_SPECIAL, UDefinitions.Empty);
+        PopulateUPropertyMetadata(ref tag, UType.BOOL_PROPERTY, UProperty.BYTE_SIZE_SPECIAL, 0);
         return new UBoolProperty(reader, tag);
     }
 
@@ -142,10 +138,10 @@ class JsonDataCruncher
         if (tag.name.StartsWith(FNAME_PREFIX))
         {
             RemovePrefix(ref tag.name, FNAME_PREFIX);
-            PopulateUPropertyMetadata(ref tag, UType.NAME_PROPERTY, UDefinitions.Empty, UDefinitions.Empty);
+            PopulateUPropertyMetadata(ref tag, UType.NAME_PROPERTY, 0, 0);
         }
         else
-            PopulateUPropertyMetadata(ref tag, UType.STR_PROPERTY, UDefinitions.Empty, UDefinitions.Empty);
+            PopulateUPropertyMetadata(ref tag, UType.STR_PROPERTY, 0, 0);
         return new UStringProperty(reader, tag);
     }
 
@@ -155,14 +151,13 @@ class JsonDataCruncher
         if (ShouldTreatAsEnumProperty(tag.name))
         {
             RemovePrefix(ref tag.name, ENUM_PREFIX, SpecialEnumNames);
-            PopulateUPropertyMetadata(ref tag, UType.BYTE_PROPERTY, UDefinitions.Empty, UDefinitions.Empty);
+            PopulateUPropertyMetadata(ref tag, UType.BYTE_PROPERTY, 0, 0);
             return UByteProperty.InstantiateProperty(ref reader, tag);
         }
 
         // stand-alone struct logic
         var elements = ReadStructElement(reader);
-        PopulateUPropertyMetadata(ref tag, UType.STRUCT_PROPERTY, UDefinitions.Empty, UDefinitions.Empty);
-        // structs that are not apart of a static array system do not have alternate names
+        PopulateUPropertyMetadata(ref tag, UType.STRUCT_PROPERTY, 0, 0);
         return new UStructProperty(reader, tag, elements, string.Empty);
     }
 
@@ -189,7 +184,7 @@ class JsonDataCruncher
         if (tag.arrayInfo.arrayType is ArrayType.Dynamic)
         {
             // Even if an array is empty, its size will include the bytes of the array entry count
-            PopulateUPropertyMetadata(ref tag, UType.ARRAY_PROPERTY, sizeof(int), UDefinitions.Empty);
+            PopulateUPropertyMetadata(ref tag, UType.ARRAY_PROPERTY, sizeof(int), 0);
             return tag.arrayInfo.valueType switch
             {
                 PropertyType.IntProperty => BuildArrayProperty(tag, _ => uHelper.ParseReaderValue<int>(reader, int.TryParse)),
@@ -260,7 +255,7 @@ class JsonDataCruncher
         {
             var tag = new TagContainer();
             tag.name = parentName;
-            PopulateUPropertyMetadata(ref tag, UType.NAME_PROPERTY, UDefinitions.Empty, arrayIndex);
+            PopulateUPropertyMetadata(ref tag, UType.NAME_PROPERTY, 0, arrayIndex);
 
             reconstructedFNamePropertyList.Add(new UStringProperty(reader, tag));
             arrayIndex++;
@@ -300,7 +295,7 @@ class JsonDataCruncher
 
                 arrayIndex = IBEnum.GetArrayIndexUsingReflection(enumType, uHelper.ReaderValueToString(reader));
             }
-            PopulateUPropertyMetadata(ref tag, UType.STRUCT_PROPERTY, UDefinitions.Empty, arrayIndex);
+            PopulateUPropertyMetadata(ref tag, UType.STRUCT_PROPERTY, 0, arrayIndex);
 
             var elements = ReadStructElement(reader);
 

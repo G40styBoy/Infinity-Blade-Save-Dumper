@@ -1,9 +1,6 @@
-using SaveDumper.UArrayData;
 using System.Text.Json;
 using Newtonsoft.Json;
 using System.Globalization;
-
-namespace SaveDumper.UPropertyData;
 
 /// <summary>
 /// Enum representation of all UProperty types discoverable inside of an Infinity Blade Save.
@@ -29,15 +26,15 @@ public class UPropertyDataHelper
     {
         if (str == string.Empty)
             return sizeof(int);
-        return UDefinitions.VALUE_SIZE + str.Length + UDefinitions.NULL_TERMINATOR;
+        return UProperty.VALUE_SIZE + str.Length + UProperty.NULL_TERMINATOR;
     }
     internal void PopulatePropertyMetadataSize(UProperty property)
     {
-        property.uPropertyElementSize ??= UDefinitions.Empty;
+        property.uPropertyElementSize ??= 0;
         property.uPropertyElementSize += ReturnLitteEndianStringLength(property.name); // name string size
         property.uPropertyElementSize += ReturnLitteEndianStringLength(property.type); // name type size
-        property.uPropertyElementSize += UDefinitions.VALUE_SIZE; // Little endian value size
-        property.uPropertyElementSize += UDefinitions.ARRAY_INDEX_SIZE; // little endian array index
+        property.uPropertyElementSize += UProperty.VALUE_SIZE; // Little endian value size
+        property.uPropertyElementSize += UProperty.ARRAY_INDEX_SIZE; // little endian array index
         property.uPropertyElementSize += property.size; // actual size of value
     }
 
@@ -52,7 +49,8 @@ public class UPropertyDataHelper
 
     internal T ParseReaderValue<T>(JsonTextReader reader, TryParseDelegate<T> tryParse) where T : struct
     {
-        string str = reader.Value?.ToString()!;  // we account for a null result, silence warning
+        // we account for a null result, silence warning
+        string str = reader.Value?.ToString()!;  
         if (str is null)
             throw new InvalidCastException($"Reader.Value is null for {reader.TokenType}");
 
@@ -66,8 +64,8 @@ public class UPropertyDataHelper
 
     internal int CalculateSpecialPropertyContentSize<T>(List<T> elements)
     {
-        if (elements.Count is UDefinitions.Empty)
-            return UDefinitions.Empty;
+        if (elements.Count is 0)
+            return 0;
 
         return elements[0] switch
         {
@@ -116,12 +114,15 @@ public class UPropertyDataHelper
         return totalSize;
     }
 
+    /// <summary>
+    /// Overwrite method for BinaryWriter.write(string) so it does not append the size to the beginning of the string
+    /// </summary>
     internal void SerializeString(ref BinaryWriter binWriter, string str)
     {
-        // write the size of the UDefinitions.Empty string
+        // write the size of the 0 string
         if (str == string.Empty)
         {
-            binWriter.Write(UDefinitions.Empty);
+            binWriter.Write(0);
             return;
         }
 
@@ -130,7 +131,7 @@ public class UPropertyDataHelper
         byte[] strBytes = Encoding.UTF8.GetBytes(str);
         binWriter.Write(str.Length + sizeof(byte)); // str + nt
         binWriter.Write(strBytes);
-        binWriter.Write((byte)UDefinitions.Empty);  // null term
+        binWriter.Write((byte)0);  // null term
     }
 
     internal void SerializeMetadata(ref BinaryWriter binWriter, UProperty property)
@@ -140,21 +141,6 @@ public class UPropertyDataHelper
         binWriter.Write(property.size);
         binWriter.Write(property.arrayIndex);
     }
-}
-
-/// <summary>
-/// Stores all definitions for UProperty related variables. This is used mostly to improve clarity and avoid magic numbers
-/// </summary>
-public record struct UDefinitions
-{
-    public const int Empty = 0;
-    public const int NULL_TERMINATOR = sizeof(byte);
-    public const int ARRAY_INDEX_SIZE = sizeof(int);
-    public const int VALUE_SIZE = sizeof(int);
-    /// <summary>
-    /// Size used for booleans inside of serialized data. Boolean size should usually be a byte
-    /// </summary>
-    public const int BYTE_SIZE_SPECIAL = UDefinitions.Empty;
 }
 
 /// <summary>
@@ -198,8 +184,19 @@ public record struct UType
     public const string NONE = "None";
 }
 
+/// <summary>
+/// Class handling everything UObjects. Mainly stores metadata
+/// </summary>
 public abstract class UProperty
 {
+    public const int NULL_TERMINATOR = sizeof(byte);
+    public const int ARRAY_INDEX_SIZE = sizeof(int);
+    public const int VALUE_SIZE = sizeof(int);
+    /// <summary>
+    /// Size used for booleans inside of serialized data. Boolean size should usually be a byte
+    /// </summary>
+    public const int BYTE_SIZE_SPECIAL = 0;
+
     public string name;
     public string type;
     public int size;
@@ -362,7 +359,7 @@ public abstract class UByteProperty : UProperty
         return tag.size switch
         {
             sizeof(byte) => new USimpleByteProperty(reader, tag),
-            UDefinitions.Empty => new UEnumByteProperty(ref reader, tag),
+            0 => new UEnumByteProperty(ref reader, tag),
             _ => throw new NotSupportedException($"Unsupported byte property size: {tag.size}")
         };
     }
@@ -604,7 +601,7 @@ public class UArrayProperty<T> : UProperty
 
     private void WriteDynamicElements(Utf8JsonWriter writer)
     {
-        if (arrayEntryCount is UDefinitions.Empty)
+        if (arrayEntryCount is 0)
             return;
 
         switch (elements[0])
@@ -676,7 +673,7 @@ public class UArrayProperty<T> : UProperty
     {
         writer.Write(arrayEntryCount);
 
-        if (arrayEntryCount is UDefinitions.Empty)
+        if (arrayEntryCount is 0)
             return;
 
         // we need a hack here because the writer.Write method for strings does not function how i want

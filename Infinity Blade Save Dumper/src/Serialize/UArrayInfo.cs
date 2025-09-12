@@ -1,7 +1,3 @@
-using System.Runtime.CompilerServices;
-
-namespace SaveDumper.UArrayData;
-
 public enum ArrayType : byte
 {
     Static,
@@ -42,6 +38,8 @@ public enum ArrayName
         GiftedFrom,
 
     // VOTE //
+    EquippedListO,
+    EquippedListR,
 
     // IB3 //
     // Static Arrays
@@ -118,7 +116,6 @@ public record ArrayMetadata
     }
 }
 
-
 public class UArray
 {
     public static ArrayMetadata? GetCurrentArray(List<ArrayMetadata> gameArrayInfo, string name)
@@ -144,7 +141,7 @@ public class UArray
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsArray(string arrayName) => Enum.IsDefined(typeof(ArrayName), arrayName);
 
-    public static List<ArrayMetadata> PopulateArrayInfo(PackageType gameType)
+    public static List<ArrayMetadata> PopulateArrayInfo(Game gameType)
     {
         var arraysToInstantiate = new List<ArrayMetadata>();
         arraysToInstantiate.AddRange(new List<ArrayMetadata>
@@ -186,33 +183,36 @@ public class UArray
             new ArrayMetadata(ArrayName.LoggedAnalyticsAchievements, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
             new ArrayMetadata(ArrayName.McpAuthorizedServices, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
 
-            // Subset Arrays
-            new ArrayMetadata(ArrayName.Gems, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.SocketedGemData, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.Reagents, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.BossElementalRandList, AlternateName.None, PropertyType.FloatProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.PersistActorCounts, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.DontClearPersistActorCounts, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.SavedItems, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.Quests, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.PendingAction, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
+                // Subset Arrays
+                new ArrayMetadata(ArrayName.Gems, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.SocketedGemData, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.Reagents, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.BossElementalRandList, AlternateName.None, PropertyType.FloatProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.PersistActorCounts, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.DontClearPersistActorCounts, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.SavedItems, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.Quests, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.PendingAction, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
 
             // IB2
             new ArrayMetadata(ArrayName.PlayerCookerGems, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
             new ArrayMetadata(ArrayName.SuperBoss, AlternateName.None, PropertyType.IntProperty, ArrayType.Dynamic),
             new ArrayMetadata(ArrayName.ActiveBattlePotions, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
 
-            // Subset Arrays
-            new ArrayMetadata(ArrayName.SocialChallengeSaveEvents, AlternateName.SocialChallengeSave, PropertyType.StructProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.GiftedTo, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
-            new ArrayMetadata(ArrayName.GiftedFrom, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
+                // Subset Arrays
+                new ArrayMetadata(ArrayName.SocialChallengeSaveEvents, AlternateName.SocialChallengeSave, PropertyType.StructProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.GiftedTo, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
+                new ArrayMetadata(ArrayName.GiftedFrom, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic),
 
             // IB1
-            new ArrayMetadata(ArrayName.PlaythroughItemsGiven, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic)
+            new ArrayMetadata(ArrayName.PlaythroughItemsGiven, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
 
+            // VOTE
+            new ArrayMetadata(ArrayName.EquippedListO, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic),
+            new ArrayMetadata(ArrayName.EquippedListR, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic)
         });
 
-        if (gameType is PackageType.IB1)
+        if (gameType is Game.IB1)
             arraysToInstantiate.Add(new ArrayMetadata(ArrayName.TouchTreasureAwards, AlternateName.None, PropertyType.NameProperty, ArrayType.Dynamic));
         else
             arraysToInstantiate.Add(new ArrayMetadata(ArrayName.TouchTreasureAwards, AlternateName.None, PropertyType.StructProperty, ArrayType.Dynamic));

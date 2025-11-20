@@ -23,6 +23,7 @@
 
 ## ⚠️ Notes
 - Tool is still in early stages of development. If bugs are encountered please create an issue. This will be released whenever im satisfied with the build quality.
+- For now, this tool is ***Windows only***. There are plans to support linux in the future.
 
 ---
 ## Credits
